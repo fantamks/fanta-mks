@@ -58,7 +58,10 @@ const coeff={MK1:1.15,MK2:1.10,MK3:1.05,Ladies:1.00};
 const teamPts={1:10,2:8,3:6,4:5,5:4};
 function getEvent(){try{return JSON.parse(localStorage.getItem('fantaMksEvent'))}catch(e){return null}}
 function pilotEventPoints(id,ev){ev=normalizeEvent(ev);let d=drivers[id],r=ev.pilots[id]||{s:0,g:0,iron:0,pen:0},f=ev.formula[d.formula]||blankFormula();let base=ev.type==='iron'?(posPts[r.iron]||0)*coeff[d.formula]:((posPts[r.s]||0)+(posPts[r.g]||0))*coeff[d.formula];let bonus=(f.pole===id?5:0)+(ev.type==='iron'?(f.fastIron===id?3:0):((f.fastSprint===id?3:0)+(f.fastGP===id?3:0)));return base+bonus-(r.pen||0)*3}
-function fantasyEventPoints(teamData,ev){ev=normalizeEvent(ev);let pts=teamData.pilots.reduce((sum,id)=>{let r=ev.pilots[id]||{};let present=ev.type==='iron'?(r.iron||0)>0:((r.s||0)>0||(r.g||0)>0);return sum+pilotEventPoints(id,ev)+(teamData.captain===id&&present?5:0)},0);let tp=ev.teams[teamData.team]||99;return pts+(teamPts[tp]||1)}
+function fmtPts(value){
+  return (Math.round((Number(value)+Number.EPSILON)*10)/10).toFixed(1);
+}
+ function fantasyEventPoints(teamData,ev){ev=normalizeEvent(ev);let pts=teamData.pilots.reduce((sum,id)=>{let r=ev.pilots[id]||{};let present=ev.type==='iron'?(r.iron||0)>0:((r.s||0)>0||(r.g||0)>0);return sum+pilotEventPoints(id,ev)+(teamData.captain===id&&present?5:0)},0);let tp=ev.teams[teamData.team]||99;return pts+(teamPts[tp]||1)}
 function getRankPosition(d){let ev=getEvent();if(!ev)return 4;let my=fantasyEventPoints(d,ev);let competitors=[310,285,260,235,210,190,175,160,145].filter(x=>x>my).length;return competitors+1}
 function renderRanking(){let d=getSaved(),ev=getEvent();if(ev&&d){let my=fantasyEventPoints(d,ev);let rows=[['Pole Position',310],['Gli Staccatori',285],['Racing Together FC',260],[d.name,my],['Cordolo Rosso',235],['Full Gas',210],['Kartisti Anonimi',190],['Box Box Box',175],['Tutto Giù',160],['Ultima Curva',145]].sort((a,b)=>b[1]-a[1]);$('ranking').innerHTML=rows.map((r,i)=>`<tr class='${r[0]===d.name?'me':''}'><td><b>${i+1}</b></td><td>${r[0]}${r[0]===d.name?` <span class='badge'>TU</span>`:''}</td><td>${r[1].toFixed(1)}</td><td><b>${r[1].toFixed(1)}</b></td></tr>`).join('');return}let rows=[['Pole Position',876.3,259.1],['Gli Staccatori',851.7,251.4],['Racing Together FC',826.2,249.8],['Mugello Dream Team',812.4,247.6],['Cordolo Rosso',799.8,239.5],['Full Gas',781.1,231.2],['Kartisti Anonimi',760.6,226.9],['Box Box Box',742.3,220.1],['Tutto Giù',719.5,214.7],['Ultima Curva',698.9,207.3]];if(d)rows[3]=[d.name,812.4,247.6];$('ranking').innerHTML=rows.map((r,i)=>`<tr class='${d&&r[0]===d.name?'me':''}'><td><b>${i+1}</b></td><td>${r[0]}${d&&r[0]===d.name?` <span class='badge'>TU</span>`:''}</td><td>${r[2].toFixed(1)}</td><td><b>${r[1].toFixed(1)}</b></td></tr>`).join('')}
 
@@ -93,7 +96,7 @@ function captureCurrentFormula(ev){
  ev.formula[adminFormula]={pole:+$('pole').value,fastSprint:+$('fastSprint').value,fastGP:+$('fastGP').value,fastIron:+$('fastIron').value}; ev.type=type;
  teams.forEach(t=>ev.teams[t.id]=+$('t'+t.id).value||99); return ev;
 }
-function calculateEvent(){let ev=normalizeEvent(getEvent());captureCurrentFormula(ev);ev.at=new Date().toISOString();localStorage.setItem('fantaMksEvent',JSON.stringify(ev));let d=getSaved();$('calcStatus').innerHTML=d?`<span class='ok'>✓ Risultati ${adminFormula} salvati e calcolo aggiornato. La tua squadra totalizza ora <b>${fantasyEventPoints(d,ev).toFixed(1)} pt</b>.</span>`:`<span class='ok'>✓ Risultati ${adminFormula} salvati. Crea una Fantasquadra per vedere il totale.</span>`}
+function calculateEvent(){let ev=normalizeEvent(getEvent());captureCurrentFormula(ev);ev.at=new Date().toISOString();localStorage.setItem('fantaMksEvent',JSON.stringify(ev));let d=getSaved();$('calcStatus').innerHTML=d?`<span class='ok'>✓ Risultati ${adminFormula} salvati e calcolo aggiornato. La tua squadra totalizza ora <b>${fmtPts(fantasyEventPoints(d,ev))}pt</b>.</span>`:`<span class='ok'>✓ Risultati ${adminFormula} salvati. Crea una Fantasquadra per vedere il totale.</span>`}
 
 async function checkAdmin(){
   const btn=$('nav-admin');
