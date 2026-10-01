@@ -72,7 +72,13 @@ function getEvent(){try{return JSON.parse(localStorage.getItem(eventStorageKey()
 function saveLocalEvent(ev){localStorage.setItem(eventStorageKey(),JSON.stringify(ev))}
 async function loadAdminEvents(){
  if(!session?.access_token)return;
- try{adminEvents=await api('eventi?select=id,nome,data,tipo,completato&order=data.asc,id.asc')||[];renderEventSelector()}catch(e){$('eventCreateStatus').innerHTML=`<span class='warn'>${e.message}</span>`}
+ try{adminEvents=await api('eventi?seltry{
+  adminEvents=await api('eventi?select=id,nome,data,tipo,completato&order=data.asc,id.asc')||[];
+  adminEvents=adminEvents.map(e=>({...e,tipo:e.tipo==='IRON'?'iron':'gp'}));
+  renderEventSelector();
+}catch(e){
+  $('eventCreateStatus').innerHTML=`<span class='warn'>${e.message}</span>`;
+}
 }
 function renderEventSelector(){let el=$('adminEventSelect');if(!el)return;el.innerHTML=`<option value=''>Nessun appuntamento</option>`+adminEvents.map(e=>`<option value='${e.id}'>${e.data||'Senza data'} · ${e.nome}</option>`).join('');if(activeEventId&&adminEvents.some(e=>String(e.id)===String(activeEventId)))el.value=String(activeEventId);else if(adminEvents.length){activeEventId=String(adminEvents[0].id);localStorage.setItem('fantaMksActiveEventId',activeEventId);el.value=activeEventId}updateActiveEventInfo()}
 function updateActiveEventInfo(){let e=adminEvents.find(x=>String(x.id)===String(activeEventId));if(!e){$('activeEventInfo').textContent='Crea o seleziona un appuntamento.';return}$('activeEventInfo').innerHTML=`<span class='ok'>ATTIVO:</span> <b>${e.nome}</b> · ${e.data||'data non impostata'} · ${e.tipo==='iron'?'IRON GP':'SPRINT RACE + GP RACE'}${e.completato?' · COMPLETATO':''}`;$('eventType').value=e.tipo||'gp'}
