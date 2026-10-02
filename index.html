@@ -1,4 +1,4 @@
-<!doctype html><html lang='it'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>FANTA MKS 2027 — Beta 0.8.0</title><style>
+<!doctype html><html lang='it'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>FANTA MKS 2027 — Beta 0.8.2</title><style>
 :root{--bg:#0d0f12;--card:#171a1f;--line:#2a2f36;--txt:#f5f5f5;--muted:#aeb5bf;--accent:#e52b2f;--good:#8ce99a;--warn:#ff8585;--gold:#ffd86b}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--txt);font-family:Arial,sans-serif}.wrap{max-width:1120px;margin:auto;padding:24px 18px 60px}header{display:flex;align-items:end;justify-content:space-between;gap:18px;border-bottom:1px solid var(--line);padding-bottom:18px;margin-bottom:20px}h1{font-size:32px;margin:0 0 5px}.tag,.small{color:var(--muted)}.small{font-size:12px}.nav{display:flex;gap:8px;flex-wrap:wrap}.nav button,.filters button,.action{border:1px solid var(--line);background:#20242a;color:white;padding:9px 13px;border-radius:9px;cursor:pointer}.nav button.active,.filters button.active,.action.primary{background:var(--accent);border-color:var(--accent)}.page{display:none}.page.active{display:block}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:18px 0}.stat,.panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}.stat b{display:block;font-size:23px;margin-top:3px}.grid{display:grid;grid-template-columns:1.5fr .8fr;gap:18px}.filters{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.drivers{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}.driver,.team{display:flex;justify-content:space-between;align-items:center;background:#111419;border:1px solid var(--line);border-radius:10px;padding:11px;cursor:pointer}.selected{outline:2px solid var(--accent)}.price{font-weight:bold}.roster{margin:0;padding:0;list-style:none}.roster li{padding:10px 0;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:10px}.warn{color:var(--warn)}.ok{color:var(--good)}.captain{color:var(--gold)}input{width:100%;padding:11px;border-radius:9px;border:1px solid var(--line);background:#111419;color:white;margin-bottom:12px}.hero{padding:28px 22px;background:linear-gradient(135deg,#171a1f,#111419);border:1px solid var(--line);border-radius:16px;margin-bottom:18px}.hero h2{font-size:28px;margin:0 0 8px}.teamcard{display:grid;grid-template-columns:1fr 1fr;gap:16px}.bigscore{font-size:42px;font-weight:bold}.badge{display:inline-block;padding:5px 8px;border:1px solid var(--line);border-radius:999px;font-size:12px;margin-left:6px}.table{width:100%;border-collapse:collapse}.table th,.table td{padding:12px 9px;border-bottom:1px solid var(--line);text-align:left}.table th{font-size:12px;color:var(--muted)}.table td:last-child,.table th:last-child{text-align:right}.me{background:#24191b}.footer{margin-top:24px;color:var(--muted);font-size:12px}@media(max-width:800px){header{align-items:flex-start;flex-direction:column}.grid,.teamcard{grid-template-columns:1fr}.drivers{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,1fr)}.table{font-size:13px}}
 .admin-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.resultrow{display:grid;grid-template-columns:1.4fr .7fr .7fr .7fr;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}select{width:100%;padding:9px;border-radius:8px;border:1px solid var(--line);background:#111419;color:white}.calcbox{padding:12px;border:1px solid var(--line);border-radius:10px;margin-top:10px}.success{background:#132018;border-color:#284b32}@media(max-width:800px){.admin-grid{grid-template-columns:1fr}.resultrow{grid-template-columns:1fr 1fr}.event-manager{grid-template-columns:1fr!important}}
 </style></head><body><div class='wrap'><header><div><h1>FANTA MKS 2027 <span class='small'>BETA 0.8.1</span></h1><div class='tag'>Prototipo tecnico · dati fittizi</div></div><div class='nav'><button id='nav-create' onclick="showPage('create')">CREA SQUADRA</button><button id='nav-my' onclick="showPage('my')">LA MIA SQUADRA</button><button id='nav-rank' onclick="showPage('rank')">CLASSIFICA</button><button id='nav-auth' onclick="showPage('auth')">ACCEDI</button><button id='nav-admin' style='display:none' onclick="showPage('admin')">AREA ADMIN</button></div></header>
@@ -18,7 +18,7 @@
 <label class='small'>APPUNTAMENTO ATTIVO</label><select id='adminEventSelect' onchange='selectAdminEvent()' style='margin-top:6px'><option value=''>Nessun appuntamento</option></select>
 <div id='activeEventInfo' class='small' style='margin-top:9px'>Crea o seleziona un appuntamento.</div></div>
 <div class='panel' style='margin-bottom:16px'><label class='small'>FORMAT APPUNTAMENTO</label><select id='eventType' onchange='changeEventType()'><option value='gp'>SPRINT RACE + GP RACE</option><option value='iron'>IRON GP</option></select><div class='filters' id='adminFormulaTabs'></div></div>
-<div class='admin-grid'><div class='panel'><h2 id='adminFormulaTitle'>Risultati MK1</h2><p class='small' id='adminHelp'></p><div id='adminHeader' class='resultrow small'></div><div id='adminDrivers'></div></div><div><div class='panel'><h2>Bonus Formula</h2><label class='small'>POLE POSITION (+5)</label><select id='pole'></select><div id='fastGpBox'><br><br><label class='small'>GIRO VELOCE SPRINT (+3)</label><select id='fastSprint'></select><br><br><label class='small'>GIRO VELOCE GP RACE (+3)</label><select id='fastGP'></select></div><div id='fastIronBox' style='display:none'><br><br><label class='small'>GIRO VELOCE IRON GP (+3)</label><select id='fastIron'></select></div></div><div class='panel' style='margin-top:16px'><h2>Classifica Team</h2><p class='small'>Classifica Team dell'appuntamento.</p><div id='adminTeams'></div></div><button class='action primary' style='width:100%;margin-top:16px;padding:14px' onclick='calculateEvent()'>CALCOLA FANTAPUNTI</button><div id='calcStatus' class='calcbox small'>Nessun risultato ancora calcolato.</div></div></div></section><div class='footer'>Beta 0.8.0 · autenticazione e salvataggio online · dati fittizi. Nessun nome, punteggio o quotazione rappresenta il Listone o la classifica MKS 2027.</div></div><script>
+<div class='admin-grid'><div class='panel'><h2 id='adminFormulaTitle'>Risultati MK1</h2><p class='small' id='adminHelp'></p><div id='adminHeader' class='resultrow small'></div><div id='adminDrivers'></div></div><div><div class='panel'><h2>Bonus Formula</h2><label class='small'>POLE POSITION (+5)</label><select id='pole'></select><div id='fastGpBox'><br><br><label class='small'>GIRO VELOCE SPRINT (+3)</label><select id='fastSprint'></select><br><br><label class='small'>GIRO VELOCE GP RACE (+3)</label><select id='fastGP'></select></div><div id='fastIronBox' style='display:none'><br><br><label class='small'>GIRO VELOCE IRON GP (+3)</label><select id='fastIron'></select></div></div><div class='panel' style='margin-top:16px'><h2>Classifica Team</h2><p class='small'>Classifica Team dell'appuntamento.</p><div id='adminTeams'></div></div><button class='action primary' style='width:100%;margin-top:16px;padding:14px' onclick='calculateEvent()'>CALCOLA FANTAPUNTI</button><div id='calcStatus' class='calcbox small'>Nessun risultato ancora calcolato.</div></div></div></section><div class='footer'>Beta 0.8.2 · autenticazione e salvataggio online · dati fittizi. Nessun nome, punteggio o quotazione rappresenta il Listone o la classifica MKS 2027.</div></div><script>
 let drivers=[];
 let teams=[];
 const SUPABASE_URL='https://mirqvltmcksivuenkuen.supabase.co';
@@ -77,7 +77,33 @@ async function loadAdminEvents(){
 function renderEventSelector(){let el=$('adminEventSelect');if(!el)return;el.innerHTML=`<option value=''>Nessun appuntamento</option>`+adminEvents.map(e=>`<option value='${e.id}'>${e.data||'Senza data'} · ${e.nome}</option>`).join('');if(activeEventId&&adminEvents.some(e=>String(e.id)===String(activeEventId)))el.value=String(activeEventId);else if(adminEvents.length){activeEventId=String(adminEvents[0].id);localStorage.setItem('fantaMksActiveEventId',activeEventId);el.value=activeEventId}updateActiveEventInfo()}
 function updateActiveEventInfo(){let e=adminEvents.find(x=>String(x.id)===String(activeEventId));if(!e){$('activeEventInfo').textContent='Crea o seleziona un appuntamento.';return}$('activeEventInfo').innerHTML=`<span class='ok'>ATTIVO:</span> <b>${e.nome}</b> · ${e.data||'data non impostata'} · ${e.tipo==='iron'?'IRON GP':'SPRINT RACE + GP RACE'}${e.completato?' · COMPLETATO':''}`;$('eventType').value=e.tipo||'gp'}
 async function createAdminEvent(){let nome=$('newEventName').value.trim(),data=$('newEventDate').value,tipo=$('newEventType').value;if(!nome||!data){$('eventCreateStatus').innerHTML=`<span class='warn'>Inserisci nome e data dell’appuntamento.</span>`;return}try{let rows=await api('eventi',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify({nome,data,tipo:tipo==='iron'?'IRON':'GP',completato:false})});let e=Array.isArray(rows)?rows[0]:null;if(!e)throw new Error('Appuntamento creato ma risposta non disponibile.');activeEventId=String(e.id);localStorage.setItem('fantaMksActiveEventId',activeEventId);saveLocalEvent(normalizeEvent({type:tipo,pilots:{},teams:{},formula:{}}));$('newEventName').value='';$('newEventDate').value='';$('eventCreateStatus').innerHTML=`<span class='ok'>✓ Appuntamento creato su Supabase.</span>`;await loadAdminEvents();renderAdminBody()}catch(e){$('eventCreateStatus').innerHTML=`<span class='warn'>${e.message}</span>`}}
-function selectAdminEvent(){activeEventId=$('adminEventSelect').value||'';if(activeEventId)localStorage.setItem('fantaMksActiveEventId',activeEventId);else localStorage.removeItem('fantaMksActiveEventId');let e=adminEvents.find(x=>String(x.id)===String(activeEventId));if(e){let local=getEvent();if(!local){saveLocalEvent(normalizeEvent({type:e.tipo||'gp',pilots:{},teams:{},formula:{}}))}$('eventType').value=e.tipo||'gp'}updateActiveEventInfo();renderAdminBody()}
+async function loadEventFromSupabase(eventId){
+ let meta=adminEvents.find(x=>String(x.id)===String(eventId));
+ let ev=normalizeEvent({type:meta?.tipo||'gp',pilots:{},teams:{},formula:{}});
+ if(!eventId)return ev;
+ const [races,poles,teamRows]=await Promise.all([
+  api('gare?select=id,tipo,formula&evento_id=eq.'+eventId),
+  api('pole?select=formula,pilota_id&evento_id=eq.'+eventId),
+  api('risultati_team?select=team_id,posizione&evento_id=eq.'+eventId)
+ ]);
+ let raceIds=(races||[]).map(r=>r.id);
+ let results=[];
+ if(raceIds.length)results=await api('risultati?select=gara_id,pilota_id,posizione,giro_veloce,penalita&gara_id=in.('+raceIds.join(',')+')')||[];
+ let raceMap={};(races||[]).forEach(r=>raceMap[r.id]=r);
+ (results||[]).forEach(row=>{
+  let race=raceMap[row.gara_id]; if(!race)return;
+  let did=drivers.findIndex(d=>d.dbid===row.pilota_id); if(did<0)return;
+  let cur=ev.pilots[did]||{s:0,g:0,iron:0,pen:0};
+  if(race.tipo==='SPRINT'){cur.s=row.posizione||0;if(row.giro_veloce)ev.formula[drivers[did].formula].fastSprint=did}
+  else if(race.tipo==='GP'){cur.g=row.posizione||0;cur.pen=row.penalita||0;if(row.giro_veloce)ev.formula[drivers[did].formula].fastGP=did}
+  else if(race.tipo==='IRON'){cur.iron=row.posizione||0;cur.pen=row.penalita||0;if(row.giro_veloce)ev.formula[drivers[did].formula].fastIron=did}
+  ev.pilots[did]=cur;
+ });
+ (poles||[]).forEach(row=>{let did=drivers.findIndex(d=>d.dbid===row.pilota_id);let f=row.formula==='LADIES'?'Ladies':row.formula;if(did>=0&&ev.formula[f])ev.formula[f].pole=did});
+ (teamRows||[]).forEach(row=>{let tid=teams.findIndex(t=>t.dbid===row.team_id);if(tid>=0)ev.teams[tid]=row.posizione});
+ saveLocalEvent(ev); return ev;
+}
+async function selectAdminEvent(){activeEventId=$('adminEventSelect').value||'';if(activeEventId)localStorage.setItem('fantaMksActiveEventId',activeEventId);else localStorage.removeItem('fantaMksActiveEventId');let e=adminEvents.find(x=>String(x.id)===String(activeEventId));if(e){$('eventType').value=e.tipo||'gp';try{await loadEventFromSupabase(activeEventId)}catch(err){$('calcStatus').innerHTML=`<span class='warn'>Errore lettura risultati online: ${err.message}</span>`}}updateActiveEventInfo();renderAdminBody()}
 
 function pilotEventPoints(id,ev){ev=normalizeEvent(ev);let d=drivers[id],r=ev.pilots[id]||{s:0,g:0,iron:0,pen:0},f=ev.formula[d.formula]||blankFormula();let base=ev.type==='iron'?(posPts[r.iron]||0)*coeff[d.formula]:((posPts[r.s]||0)+(posPts[r.g]||0))*coeff[d.formula];let bonus=(f.pole===id?5:0)+(ev.type==='iron'?(f.fastIron===id?3:0):((f.fastSprint===id?3:0)+(f.fastGP===id?3:0)));return base+bonus-(r.pen||0)*3}
 function fmtPts(value){
@@ -96,7 +122,7 @@ function normalizeEvent(ev){
 }
 function changeEventType(){renderAdminBody()}
 function setAdminFormula(f){adminFormula=f;renderAdminBody()}
-async function renderAdmin(){await loadAdminEvents();let ev=normalizeEvent(getEvent());let dbEv=adminEvents.find(x=>String(x.id)===String(activeEventId));$('eventType').value=dbEv?.tipo||ev.type;updateActiveEventInfo();renderAdminBody()}
+async function renderAdmin(){await loadAdminEvents();let dbEv=adminEvents.find(x=>String(x.id)===String(activeEventId));if(dbEv){$('eventType').value=dbEv.tipo||'gp';try{await loadEventFromSupabase(activeEventId)}catch(err){console.error(err)}}let ev=normalizeEvent(getEvent());$('eventType').value=dbEv?.tipo||ev.type;updateActiveEventInfo();renderAdminBody()}
 function renderAdminBody(){
  let ev=normalizeEvent(getEvent()), type=$('eventType').value||ev.type||'gp';
  $('adminFormulaTabs').innerHTML=['MK1','MK2','MK3','Ladies'].map(f=>`<button class='${adminFormula===f?'active':''}' onclick="setAdminFormula('${f}')">${f}</button>`).join('');
@@ -118,7 +144,44 @@ function captureCurrentFormula(ev){
  ev.formula[adminFormula]={pole:+$('pole').value,fastSprint:+$('fastSprint').value,fastGP:+$('fastGP').value,fastIron:+$('fastIron').value}; ev.type=type;
  teams.forEach(t=>ev.teams[t.id]=+$('t'+t.id).value||99); return ev;
 }
-function calculateEvent(){if(!activeEventId){$('calcStatus').innerHTML=`<span class='warn'>Prima crea o seleziona un appuntamento.</span>`;return}let ev=normalizeEvent(getEvent());captureCurrentFormula(ev);ev.at=new Date().toISOString();saveLocalEvent(ev);let d=getSaved();$('calcStatus').innerHTML=d?`<span class='ok'>✓ Risultati ${adminFormula} salvati e calcolo aggiornato. La tua squadra totalizza ora <b>${fmtPts(fantasyEventPoints(d,ev))}pt</b>.</span>`:`<span class='ok'>✓ Risultati ${adminFormula} salvati. Crea una Fantasquadra per vedere il totale.</span>`}
+async function saveCurrentFormulaOnline(ev){
+ const eventId=Number(activeEventId), dbFormula=adminFormula==='Ladies'?'LADIES':adminFormula;
+ const raceTypes=ev.type==='iron'?['IRON']:['SPRINT','GP'];
+ let races=await api('gare?select=id,tipo,formula&evento_id=eq.'+eventId+'&formula=eq.'+dbFormula)||[];
+ for(const rt of raceTypes){
+  if(!races.some(r=>r.tipo===rt)){
+   let made=await api('gare',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify({evento_id:eventId,tipo:rt,formula:dbFormula})});
+   if(made&&made[0])races.push(made[0]);
+  }
+ }
+ for(const race of races.filter(r=>raceTypes.includes(r.tipo))){
+  await api('risultati?gara_id=eq.'+race.id,{method:'DELETE'});
+  let rows=drivers.filter(d=>d.formula===adminFormula).map(d=>{
+   let r=ev.pilots[d.id]||{s:0,g:0,iron:0,pen:0}, f=ev.formula[adminFormula]||blankFormula();
+   let posizione=race.tipo==='SPRINT'?(r.s||0):race.tipo==='GP'?(r.g||0):(r.iron||0);
+   let giro=race.tipo==='SPRINT'?f.fastSprint===d.id:race.tipo==='GP'?f.fastGP===d.id:f.fastIron===d.id;
+   let penalita=(race.tipo==='GP'||race.tipo==='IRON')?(r.pen||0):0;
+   return {gara_id:race.id,pilota_id:d.dbid,posizione,giro_veloce:giro,penalita};
+  });
+  if(rows.length)await api('risultati',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify(rows)});
+ }
+ await api('pole?evento_id=eq.'+eventId+'&formula=eq.'+dbFormula,{method:'DELETE'});
+ let poleId=ev.formula[adminFormula]?.pole;
+ if(Number.isInteger(poleId)&&poleId>=0)await api('pole',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({evento_id:eventId,formula:dbFormula,pilota_id:drivers[poleId].dbid})});
+ await api('risultati_team?evento_id=eq.'+eventId,{method:'DELETE'});
+ let teamRows=teams.map(t=>({evento_id:eventId,team_id:t.dbid,posizione:ev.teams[t.id]||99}));
+ if(teamRows.length)await api('risultati_team',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify(teamRows)});
+}
+async function calculateEvent(){
+ if(!activeEventId){$('calcStatus').innerHTML=`<span class='warn'>Prima crea o seleziona un appuntamento.</span>`;return}
+ let ev=normalizeEvent(getEvent());captureCurrentFormula(ev);ev.at=new Date().toISOString();saveLocalEvent(ev);
+ $('calcStatus').innerHTML=`<span class='small'>Salvataggio su Supabase in corso...</span>`;
+ try{
+  await saveCurrentFormulaOnline(ev);
+  let d=getSaved();
+  $('calcStatus').innerHTML=d?`<span class='ok'>✓ Risultati ${adminFormula} salvati ONLINE e calcolo aggiornato. La tua squadra totalizza ora <b>${fmtPts(fantasyEventPoints(d,ev))}pt</b>.</span>`:`<span class='ok'>✓ Risultati ${adminFormula} salvati ONLINE. Crea una Fantasquadra per vedere il totale.</span>`;
+ }catch(err){$('calcStatus').innerHTML=`<span class='warn'>Salvataggio locale riuscito, ma errore Supabase: ${err.message}</span>`}
+}
 
 async function checkAdmin(){
   const btn=$('nav-admin');
