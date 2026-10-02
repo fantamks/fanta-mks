@@ -287,7 +287,7 @@ body.admin-view #adminDiag{display:block!important}
 <div class='home-dash-grid'>
  <div class='panel'>
    <span class='small'>STAGIONE 2027</span><h2 class='home-dash-title'>La stagione FANTA MKS</h2>
-   <div id='homeSeason' class='tag'>Caricamento appuntamenti...</div>
+   <div id='homeSeason'>Caricamento appuntamenti...</div>
  </div>
  <div class='panel'>
    <span class='small'>CLASSIFICA</span><h2 class='home-dash-title'>Top 3 FANTA MKS</h2>
@@ -301,7 +301,7 @@ body.admin-view #adminDiag{display:block!important}
   <div class='home-fanta-item'><span class='small'>ROSA</span><b>5 piloti</b></div>
   <div class='home-fanta-item'><span class='small'>TEAM MKS</span><b>1 Team</b></div>
   <div class='home-fanta-item'><span class='small'>BUDGET</span><b>100 FC</b></div>
-  <div class='home-fanta-item'><span class='small'>PROSSIMO ROUND</span><b id='homeNextMini'>In aggiornamento</b></div>
+  <div class='home-fanta-item'><span class='small'>POSIZIONE</span><b id='homePositionMini'>In aggiornamento</b></div>
  </div>
 </div>
 </section>
@@ -747,9 +747,7 @@ async function loadHomeDashboard(){
    const next=open.length?open[0]:null;
    const last=completed.length?completed[completed.length-1]:null;
    const total=season.length;
-   const nextMini=$('homeNextMini');
    seasonBox.innerHTML=`<div class='home-season-stats'><div class='home-stat'><span class='small'>DISPUTATI</span><b>${completed.length}</b></div><div class='home-stat'><span class='small'>ROUND 2027</span><b>${total}</b></div></div>` + (next?`<div class='home-next'><span class='small'>PROSSIMO APPUNTAMENTO</span><br><b>${escPublic(next.meta.nome)}</b><br><span class='tag'>${escPublic(next.meta.data||'')} · ${escPublic(next.meta.tipo==='IRON'?'IRON GP':'SPRINT RACE + GP RACE')}</span></div>`:(last?`<div class='home-next'><span class='small'>ULTIMO APPUNTAMENTO</span><br><b>${escPublic(last.meta.nome)}</b><br><span class='tag'>${escPublic(last.meta.data||'')}</span></div>`:'Calendario 2027 in preparazione.'));
-   if(nextMini) nextMini.textContent=next?next.meta.nome:(total?'Stagione completata':'Da definire');
  }catch(e){
    console.error('Home calendario',e);
    seasonBox.textContent='Calendario 2027 in preparazione.';
@@ -757,6 +755,12 @@ async function loadHomeDashboard(){
 
  try{
    const rows=await getRealSeasonRanking();
+   const posMini=$('homePositionMini');
+   if(posMini){
+     const myUid=session?.user?.id||null;
+     const myIndex=myUid?rows.findIndex(r=>String(r.user_id)===String(myUid)):-1;
+     posMini.textContent=myIndex>=0?`#${myIndex+1}`:'—';
+   }
    if(!rows.length){
      topBox.textContent='La classifica prenderà vita con l’inizio della stagione.';
      return;
