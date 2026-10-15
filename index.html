@@ -496,9 +496,13 @@ body.admin-view #adminDiag{display:block!important}
 <div><b>Fantasquadra B</b><label class='small' for='tieBPts'>Fantapunti</label><input id='tieBPts' type='number' step='0.1' value='200'><label class='small' for='tieBFc'>FC spesi</label><input id='tieBFc' type='number' min='0' max='100' value='100'><label class='small' for='tieBWins'>Vittorie Round</label><input id='tieBWins' type='number' min='0' step='1' value='2'></div>
 </div><div id='tieSimResult' class='calcbox small' style='margin-top:12px' aria-live='polite'>Premi VERIFICA SPAREGGI per simulare il primo criterio.</div>
 </div>
+<div class='panel' style='margin-top:16px;border:1px solid #365477'>
+<div class='admin-section-title'><div><span class='small'>DIAGNOSTICA ADMIN · NESSUN DATO SALVATO</span><h2>Collaudo ordinamento classifica</h2></div><button class='action' onclick='runPublicRankingSimulation()'>SIMULA CLASSIFICA</button></div>
+<p class='tag'>Usa gli stessi criteri e la stessa funzione di ordinamento della classifica pubblica. Prova tre scenari con fantasquadre fittizie: minori FC, maggiori vittorie ed ex aequo. Non crea account e non modifica Supabase.</p>
+<div id='publicRankSimResult' class='calcbox small' aria-live='polite'>Premi SIMULA CLASSIFICA per eseguire i tre scenari.</div></div>
 <div class='panel' style='margin-top:16px'><div class='admin-section-title'><div><span class='small'>STEP 4 · CONTROLLO</span><h2>Controllo Round</h2></div><button class='action' onclick='refreshAdminValidation()'>AGGIORNA CONTROLLO</button></div><div id='adminValidation' class='admin-checks'></div></div>
 <div class='panel' style='margin-top:16px'><span class='small'>STEP 5 · FINALIZZA</span><h2>Pubblica il Round</h2><p class='tag'>La finalizzazione blocca i risultati e aggiorna i Fantapunti. Per correggere un errore potrai riaprire l'appuntamento.</p><button id='finalizeRoundBtn' class='action primary admin-finalize' style='width:100%' onclick='finalizeRoundAndCalculate()'>FINALIZZA ROUND E CALCOLA</button></div>
-</section><div class='footer'>0.9.11.8.10 · autenticazione e salvataggio online · Listone Test V2 provvisorio.</div></div><script>
+</section><div class='footer'>0.9.11.8.11 · autenticazione e salvataggio online · Listone Test V2 provvisorio.</div></div><script>
 let drivers=[];
 let teams=[];
 const SUPABASE_URL='https://mirqvltmcksivuenkuen.supabase.co';
@@ -1047,14 +1051,53 @@ async function loadAllFantasyTeams(){
    return {dbid:f.id,user_id:f.user_id,name:f.nome_fantasquadra,pilots:pids,team:tidx,captain:capidx,spent:f.crediti_spesi,badge_id:f.badge_id||1,badge_color:f.badge_color||'rosso'};
  }).filter(x=>x.pilots.length===5&&x.team>=0&&x.captain!==null&&x.captain>=0);
 }
+// Criteri condivisi tra classifica pubblica, schede e collaudo locale.
+function comparePublicRank(a,b){
+ const ap=Number(a.total)||0,bp=Number(b.total)||0;
+ if(ap!==bp)return bp-ap;
+ const af=Number(a.spent)||0,bf=Number(b.spent)||0;
+ if(af!==bf)return af-bf;
+ const aw=Number(a.roundWins)||0,bw=Number(b.roundWins)||0;
+ return bw-aw;
+}
+function rankWithExAequo(rows){
+ const sorted=[...rows].sort(comparePublicRank);
+ return sorted.map((r,i)=>({...r,rank:i&&comparePublicRank(r,sorted[i-1])===0?null:i+1})).map((r,i,arr)=>({...r,rank:r.rank===null?arr[i-1].rank:r.rank}));
+}
+function seasonRoundWins(squads,season){
+ const wins=new Map(squads.map(s=>[String(s.dbid),0]));
+ for(const item of season){
+  const scores=squads.map(s=>({id:String(s.dbid),pts:fantasyEventPoints(s,item.ev)}));
+  if(!scores.length)continue;
+  const best=Math.max(...scores.map(x=>x.pts));
+  scores.filter(x=>Math.abs(x.pts-best)<1e-8).forEach(x=>wins.set(x.id,(wins.get(x.id)||0)+1));
+ }
+ return wins;
+}
+function runPublicRankingSimulation(){
+ const out=$('publicRankSimResult');if(!out)return;
+ const scenarios=[
+  {name:'Minori FC',a:{total:200,spent:95,roundWins:1},b:{total:200,spent:100,roundWins:2},expected:'A'},
+  {name:'Maggiori vittorie',a:{total:200,spent:100,roundWins:1},b:{total:200,spent:100,roundWins:2},expected:'B'},
+  {name:'Ex aequo',a:{total:200,spent:100,roundWins:2},b:{total:200,spent:100,roundWins:2},expected:'PARI'}
+ ];
+ out.innerHTML=scenarios.map(t=>{
+  const rows=rankWithExAequo([{...t.a,name:'Fantasquadra A'},{...t.b,name:'Fantasquadra B'}]);
+  const result=rows[0].rank===rows[1].rank?'PARI':rows[0].name.endsWith('A')?'A':'B';
+  const ok=result===t.expected;
+  return `<div style='padding:10px 0;border-bottom:1px solid #303640'><b>${t.name}</b> · <span style='color:${ok?'#55ec9a':'#ff6b6b'}'>${ok?'SUPERATO':'DA VERIFICARE'}</span><div>${rows.map(x=>`${x.rank}° ${x.name} · ${fmtPts(x.total)} pt · ${x.spent} FC · ${x.roundWins} vittorie`).join(' | ')}</div></div>`;
+ }).join('')+'<p>Simulazione locale con la funzione usata dalla classifica pubblica. Non verifica ancora una graduatoria reale con più account.</p>';
+}
 async function getRealSeasonRanking(){
  const [season,squads]=await Promise.all([loadSeasonEvents({finalizedOnly:true}),loadAllFantasyTeams()]);
  const last=season.length?season[season.length-1]:null;
- return squads.map(d=>({
+ const wins=seasonRoundWins(squads,season);
+ return rankWithExAequo(squads.map(d=>({
    ...d,
    total:seasonPoints(d,season),
-   last:last?fantasyEventPoints(d,last.ev):0
- })).sort((a,b)=>b.total-a.total || a.spent-b.spent || a.name.localeCompare(b.name));
+   last:last?fantasyEventPoints(d,last.ev):0,
+   roundWins:wins.get(String(d.dbid))||0
+ })));
 }
 async function getPublicNicknames(userIds){
  const ids=[...new Set((userIds||[]).filter(Boolean))];
@@ -1121,7 +1164,7 @@ async function renderRankingBase(){
   $('ranking').innerHTML=rows.map((r,i)=>{
    const nick=nicknames[String(r.user_id)]||'';
    const search=(String(r.name||'')+' '+nick).toLowerCase().replace(/'/g,'&#39;');
-   return `<tr data-search='${search}' class='${mine&&String(r.dbid)===String(mine.dbid)?'me':''}'><td><b>${i+1}</b></td><td><div style='display:flex;align-items:center'>${badgeHTML(r.badge_id,r.badge_color,'rank-team-badge')}<div><button class='teamlink' onclick='openPublicTeam(${r.dbid})'>${escPublic(r.name)}</button>${mine&&String(r.dbid)===String(mine.dbid)?` <span class='badge'>TU</span>`:''}${nick?`<div class='small' style='margin-top:4px'>@${escPublic(nick)}</div>`:''}</div></div></td><td>${fmtPts(r.last)}</td><td><b>${fmtPts(r.total)}</b></td><td class='rank-details'><button class='action' onclick='openPublicTeam(${r.dbid})'>DETTAGLI</button></td></tr>`;
+   return `<tr data-search='${search}' class='${mine&&String(r.dbid)===String(mine.dbid)?'me':''}'><td><b>${r.rank}</b></td><td><div style='display:flex;align-items:center'>${badgeHTML(r.badge_id,r.badge_color,'rank-team-badge')}<div><button class='teamlink' onclick='openPublicTeam(${r.dbid})'>${escPublic(r.name)}</button>${mine&&String(r.dbid)===String(mine.dbid)?` <span class='badge'>TU</span>`:''}${nick?`<div class='small' style='margin-top:4px'>@${escPublic(nick)}</div>`:''}</div></div></td><td>${fmtPts(r.last)}</td><td><b>${fmtPts(r.total)}</b></td><td class='rank-details'><button class='action' onclick='openPublicTeam(${r.dbid})'>DETTAGLI</button></td></tr>`;
   }).join('');
   filterRankingRows();
  }catch(e){$('ranking').innerHTML=`<tr><td colspan='5'><span class='warn'>Errore classifica: ${e.message}</span></td></tr>`}
@@ -1132,8 +1175,8 @@ async function openPublicTeam(fid){
  try{
   const [season,squads]=await Promise.all([loadSeasonEvents({finalizedOnly:true}),loadAllFantasyTeams()]);
   const d=squads.find(x=>String(x.dbid)===String(fid));if(!d)throw new Error('Fantasquadra non trovata.');
-  const ranking=squads.map(x=>({...x,total:seasonPoints(x,season)})).sort((a,b)=>b.total-a.total||a.spent-b.spent||a.name.localeCompare(b.name));
-  const pos=season.length?ranking.findIndex(x=>String(x.dbid)===String(fid))+1:'—',total=seasonPoints(d,season),last=season.length?fantasyEventPoints(d,season[season.length-1].ev):0;
+  const wins=seasonRoundWins(squads,season);const ranking=rankWithExAequo(squads.map(x=>({...x,total:seasonPoints(x,season),roundWins:wins.get(String(x.dbid))||0})));
+  const pos=season.length?ranking.find(x=>String(x.dbid)===String(fid))?.rank||'—':'—',total=seasonPoints(d,season),last=season.length?fantasyEventPoints(d,season[season.length-1].ev):0;
   const nicknames=await getPublicNicknames([d.user_id]);const publicNick=nicknames[String(d.user_id)]||'';
   $('publicTeamContent').innerHTML=`<button class='action' onclick="showPage('rank')" style='margin-bottom:14px'>← TORNA ALLA CLASSIFICA</button><div class='hero'><span class='small'>SCHEDA FANTASQUADRA</span><h2 style='display:flex;align-items:center'>${badgeHTML(d.badge_id,d.badge_color,'public-team-badge')}${escPublic(d.name)}</h2><div class='tag'>${publicNick?`Partecipante: <b>@${escPublic(publicNick)}</b> · `:''}Rosa pubblica FANTA MKS 2027</div></div><div class='stats'><div class='stat'><span class='small'>CLASSIFICA</span><b>#${pos}</b></div><div class='stat'><span class='small'>TOTALE STAGIONE</span><b>${fmtPts(total)} pt</b></div><div class='stat'><span class='small'>ULTIMO APPUNTAMENTO</span><b>${fmtPts(last)} pt</b></div><div class='stat'><span class='small'>BUDGET USATO</span><b>${d.spent} FC</b></div></div><div class='public-roster-grid'><div class='panel'><span class='small'>LA ROSA</span><h2>I 5 piloti</h2><ul class='roster'>${d.pilots.map(id=>`<li><span><b>${drivers[id].name}</b> <span class='badge'>${drivers[id].formula}</span>${d.captain===id?` <span class='captain'>★ CAPITANO</span>`:''}</span><span>${drivers[id].price} FC</span></li>`).join('')}</ul></div><div class='panel public-team-choice'><h2>TEAM MKS SCELTO</h2><div class='public-team-name'>${teams[d.team].name}</div><p class='public-team-price'>Quotazione: ${teams[d.team].price} FC</p></div></div><div class='panel' style='margin-top:16px'><span class='small'>STAGIONE 2027</span><h2>Andamento stagione</h2>${season.length?`<div class='roster'>${season.map(x=>{const pts=fantasyEventPoints(d,x.ev),tipo=x.meta.tipo==='IRON'?'IRON GP':x.meta.tipo==='GP'?'SPRINT RACE + GP RACE':x.meta.tipo;return `<li><span><b>${x.meta.nome}</b><br><span class='small'>${x.meta.data||''} · ${tipo||''}</span></span><span><b>${fmtPts(pts)} pt</b></span></li>`}).join('')}</div><div style='display:flex;justify-content:space-between;align-items:center;margin-top:18px;padding-top:16px;border-top:1px solid var(--border)'><b>TOTALE STAGIONE</b><b style='font-size:22px'>${fmtPts(total)} pt</b></div>`:`<p class='tag'>Nessun appuntamento calcolato.</p>`}</div>`;
  }catch(e){$('publicTeamContent').innerHTML=`<button class='action' onclick="showPage('rank')">← TORNA ALLA CLASSIFICA</button><div class='hero' style='margin-top:14px'><h2>Fantasquadra</h2><div class='warn'>Errore lettura scheda: ${e.message}</div></div>`}
