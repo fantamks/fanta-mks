@@ -487,9 +487,10 @@ body.admin-view #adminDiag{display:block!important}
 <div class='panel' style='margin-top:16px'><div class='admin-section-title'><div><span class='small'>STEP 3 · TEAM</span><h2>Classifica Team MKS</h2></div><span class='small'>Inserisci la posizione ufficiale di ogni Team.</span></div><div id='adminTeams'></div></div>
 <div class='panel' style='margin-top:16px;border:1px solid #76571d'><div class='admin-section-title'><div><span class='small'>STRUMENTO DI COLLAUDO · SOLO DATI SIMULATI</span><h2>Carica dati test</h2></div><button id='seedTestBtn' class='action' onclick='seedTestRound()'>CARICA DATI TEST</button></div><p class='tag'>Compila e salva online tutte le Formule e i Team del Round aperto con posizioni di prova senza duplicati. Sovrascrive i risultati già inseriti nel Round selezionato. Non finalizza né pubblica automaticamente.</p><div id='seedTestStatus' class='small'></div></div>
 <div class='panel' style='margin-top:16px;border:1px solid #7a3131'><div class='admin-section-title'><div><span class='small'>MANUTENZIONE · SOLO ROUND DI PROVA</span><h2>Pulisci dati test</h2></div><button id='clearTestBtn' class='action' onclick='clearTestRound()'>PULISCI DATI TEST</button></div><p class='tag'>Elimina soltanto risultati piloti, gare, Pole, giri veloci e classifiche Team del Round TEST selezionato. Non elimina Round, piloti, Team, account o fantasquadre. Disponibile solo per Round APERTI.</p><div id='clearTestStatus' class='small'></div></div>
+<div class='panel' style='margin-top:16px;border:1px solid #365477'><div class='admin-section-title'><div><span class='small'>DIAGNOSTICA ADMIN · SOLA LETTURA</span><h2>Dettaglio Fantapunti – Round TEST</h2></div><button class='action' onclick='showTestPointsDetail()'>VERIFICA PUNTEGGI</button></div><p class='tag'>Mostra i punteggi del Round TEST selezionato senza inserirli nella classifica ufficiale. Non modifica alcun dato.</p><div id='testPointsDetail' class='calcbox small'>Seleziona un Round TEST e premi VERIFICA PUNTEGGI.</div></div>
 <div class='panel' style='margin-top:16px'><div class='admin-section-title'><div><span class='small'>STEP 4 · CONTROLLO</span><h2>Controllo Round</h2></div><button class='action' onclick='refreshAdminValidation()'>AGGIORNA CONTROLLO</button></div><div id='adminValidation' class='admin-checks'></div></div>
 <div class='panel' style='margin-top:16px'><span class='small'>STEP 5 · FINALIZZA</span><h2>Pubblica il Round</h2><p class='tag'>La finalizzazione blocca i risultati e aggiorna i Fantapunti. Per correggere un errore potrai riaprire l'appuntamento.</p><button id='finalizeRoundBtn' class='action primary admin-finalize' style='width:100%' onclick='finalizeRoundAndCalculate()'>FINALIZZA ROUND E CALCOLA</button></div>
-</section><div class='footer'>0.9.11.8.8 · autenticazione e salvataggio online · Listone Test V2 provvisorio.</div></div><script>
+</section><div class='footer'>0.9.11.8.9 · autenticazione e salvataggio online · Listone Test V2 provvisorio.</div></div><script>
 let drivers=[];
 let teams=[];
 const SUPABASE_URL='https://mirqvltmcksivuenkuen.supabase.co';
@@ -980,6 +981,35 @@ function fmtPts(value){
   return (Math.round((Number(value)+Number.EPSILON)*10)/10).toFixed(1);
 }
  function fantasyEventPoints(teamData,ev){ev=normalizeEvent(ev);let pts=teamData.pilots.reduce((sum,id)=>{let r=ev.pilots[id]||{};let present=ev.type==='iron'?(r.iron||0)>0:((r.s||0)>0||(r.g||0)>0);return sum+pilotEventPoints(id,ev)+(teamData.captain===id&&present?5:0)},0);let tp=ev.teams[teamData.team]||99;return pts+(teamPts[tp]||1)}
+async function showTestPointsDetail(){
+ const out=$('testPointsDetail');
+ const meta=adminEvents.find(x=>String(x.id)===String(activeEventId));
+ if(!meta||!isTestRound(meta)){out.textContent='Disponibile esclusivamente per Round TEST.';return}
+ out.textContent='Lettura delle fantasquadre e dei risultati in corso...';
+ try{
+  const squads=await loadAllFantasyTeams();
+  if(!squads.length){out.textContent='Nessuna fantasquadra completa trovata.';return}
+  // Usa i risultati caricati da Supabase per il Round attivo; non acquisisce campi non salvati.
+  const ev=normalizeEvent(getEvent());
+  let html='';
+  for(const squad of squads){
+   let rows='',totalPilots=0;
+   for(const id of squad.pilots){
+    const d=drivers[id],r=ev.pilots[id]||{};
+    const present=ev.type==='iron'?(Number(r.iron)>0):(Number(r.s)>0||Number(r.g)>0);
+    const base=pilotEventPoints(id,ev);
+    const captain=(squad.captain===id&&present)?5:0;
+    const subtotal=base+captain;totalPilots+=subtotal;
+    rows+=`<tr><td>${d.name}${squad.captain===id?' ★':''}</td><td>${present?(ev.type==='iron'?('Iron '+r.iron):('Sprint '+r.s+' / GP '+r.g)):'ASSENTE'}</td><td style='text-align:right'>${fmtPts(base)}</td><td style='text-align:right'>${fmtPts(captain)}</td><td style='text-align:right'><b>${fmtPts(subtotal)}</b></td></tr>`;
+   }
+   const teamPos=ev.teams[squad.team]||99;
+   const teamScore=teamPts[teamPos]||1;
+   const grand=totalPilots+teamScore;
+   html+=`<div style='margin:12px 0 6px'><b>${squad.name}</b> · Team ${teams[squad.team]?.name||'—'} (${teamPos===99?'senza posizione':teamPos+'°'})</div><div style='overflow-x:auto'><table class='table' style='width:100%'><thead><tr><th>Pilota</th><th>Risultato</th><th>Pt pilota</th><th>Capitano</th><th>Totale</th></tr></thead><tbody>${rows}</tbody></table></div><div style='margin:8px 0 16px'>Piloti: <b>${fmtPts(totalPilots)}</b> · Team: <b>${fmtPts(teamScore)}</b> · Totale Round: <b>${fmtPts(grand)} pt</b></div>`;
+  }
+  out.innerHTML=html;
+ }catch(err){out.textContent='Impossibile leggere la diagnostica: '+err.message}
+}
 function getSeasonRankPosition(my){let competitors=[520,490,455,430,400,375,350,325,300].filter(x=>x>my).length;return competitors+1}
 async function loadAllFantasyTeams(){
  const squads=await api('fantasquadre?select=id,nome_fantasquadra,team_id,crediti_spesi,user_id,badge_id,badge_color&order=id.asc')||[];
