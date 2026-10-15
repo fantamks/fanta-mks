@@ -488,7 +488,7 @@ body.admin-view #adminDiag{display:block!important}
 <div class='panel' style='margin-top:16px;border:1px solid #76571d'><div class='admin-section-title'><div><span class='small'>STRUMENTO DI COLLAUDO · SOLO DATI SIMULATI</span><h2>Carica dati test</h2></div><button id='seedTestBtn' class='action' onclick='seedTestRound()'>CARICA DATI TEST</button></div><p class='tag'>Compila e salva online tutte le Formule e i Team del Round aperto con posizioni di prova senza duplicati. Sovrascrive i risultati già inseriti nel Round selezionato. Non finalizza né pubblica automaticamente.</p><div id='seedTestStatus' class='small'></div></div>
 <div class='panel' style='margin-top:16px'><div class='admin-section-title'><div><span class='small'>STEP 4 · CONTROLLO</span><h2>Controllo Round</h2></div><button class='action' onclick='refreshAdminValidation()'>AGGIORNA CONTROLLO</button></div><div id='adminValidation' class='admin-checks'></div></div>
 <div class='panel' style='margin-top:16px'><span class='small'>STEP 5 · FINALIZZA</span><h2>Pubblica il Round</h2><p class='tag'>La finalizzazione blocca i risultati e aggiorna i Fantapunti. Per correggere un errore potrai riaprire l'appuntamento.</p><button id='finalizeRoundBtn' class='action primary admin-finalize' style='width:100%' onclick='finalizeRoundAndCalculate()'>FINALIZZA ROUND E CALCOLA</button></div>
-</section><div class='footer'>0.9.11.8.4 · autenticazione e salvataggio online · Listone Test V2 provvisorio.</div></div><script>
+</section><div class='footer'>0.9.11.8.5 · autenticazione e salvataggio online · Listone Test V2 provvisorio.</div></div><script>
 let drivers=[];
 let teams=[];
 const SUPABASE_URL='https://mirqvltmcksivuenkuen.supabase.co';
@@ -1106,7 +1106,7 @@ function renderAdminBody(){
  let f=ev.formula[adminFormula]||blankFormula();[['pole','pole'],['fastSprint','fastSprint'],['fastGP','fastGP'],['fastIron','fastIron']].forEach(([id,k])=>{let v=f[k];$(id).value=v;$(id).onchange=()=>bonusChanged(k,id)});
  $('fastGpBox').style.display=type==='gp'?'block':'none';$('fastIronBox').style.display=type==='iron'?'block':'none';
  $('adminTeams').innerHTML=teams.map(t=>`<div class='admin-teamrow'><b>${t.name}</b><input id='t${t.id}' type='number' min='1' max='99' placeholder='Pos.' value='${ev.teams[t.id]??''}'></div>`).join('');
- let meta=adminEvents.find(x=>String(x.id)===String(activeEventId)),locked=!!meta?.completato;['eventType','pole','fastSprint','fastGP','fastIron'].forEach(id=>{if($(id))$(id).disabled=locked});document.querySelectorAll('#adminDrivers input,#adminTeams input').forEach(el=>el.disabled=locked);let sb=$('saveFormulaBtn');if(sb){sb.disabled=locked;sb.textContent='SALVA '+adminFormula;sb.style.opacity=locked?'.45':'1'}let fb=$('finalizeRoundBtn');if(fb){fb.disabled=locked;fb.style.opacity=locked?'.45':'1'}if(locked)$('calcStatus').innerHTML=`<span class='ok'>✓ Round FINALIZZATO. I risultati sono bloccati.</span>`;refreshAdminValidation(false);
+ let meta=adminEvents.find(x=>String(x.id)===String(activeEventId)),locked=!!meta?.completato;let testBtn=$('seedTestBtn');if(testBtn){let permitted=!!meta&&!locked&&/\btest\b/i.test(meta.nome||'');testBtn.disabled=!permitted;testBtn.title=permitted?'Solo Round di prova':'Disponibile solo per Round APERTI con TEST nel nome'}['eventType','pole','fastSprint','fastGP','fastIron'].forEach(id=>{if($(id))$(id).disabled=locked});document.querySelectorAll('#adminDrivers input,#adminTeams input').forEach(el=>el.disabled=locked);let sb=$('saveFormulaBtn');if(sb){sb.disabled=locked;sb.textContent='SALVA '+adminFormula;sb.style.opacity=locked?'.45':'1'}let fb=$('finalizeRoundBtn');if(fb){fb.disabled=locked;fb.style.opacity=locked?'.45':'1'}if($('calcStatus'))$('calcStatus').innerHTML=locked?`<span class='ok'>✓ Round FINALIZZATO. I risultati sono bloccati.</span>`:`<span class='small'>Round APERTO. I risultati possono essere modificati.</span>`;refreshAdminValidation(false);
 }
 function toggleAbsent(id){let a=$('a'+id),type=$('eventType').value;if(type==='gp'){if($('s'+id))$('s'+id).disabled=a.checked;if($('g'+id))$('g'+id).disabled=a.checked}else if($('i'+id))$('i'+id).disabled=a.checked;if(a.checked){if($('s'+id))$('s'+id).value='';if($('g'+id))$('g'+id).value='';if($('i'+id))$('i'+id).value=''} }
 function captureCurrentFormula(ev){
@@ -1171,8 +1171,10 @@ async function seedTestRound(){
  if(!activeEventId){status.textContent='Seleziona un Round.';return}
  const meta=adminEvents.find(e=>String(e.id)===String(activeEventId));
  if(!meta||meta.completato){status.textContent='Funzione disponibile soltanto per Round aperti.';return}
+ if(!/\btest\b/i.test(meta.nome||'')){status.textContent='PROTEZIONE: caricamento consentito solo per Round con la parola TEST nel nome.';return}
  if(!session?.access_token){status.textContent='Accedi come amministratore.';return}
  if(!confirm('ATTENZIONE: sostituire tutti i risultati del Round '+(meta.nome||activeEventId)+' con DATI SIMULATI? I risultati precedenti saranno sovrascritti. Il Round NON verrà finalizzato.'))return;
+ if(prompt('Per confermare il caricamento scrivi TEST')!=='TEST'){status.textContent='Caricamento annullato: conferma TEST non fornita.';return}
  button.disabled=true;
  const previousFormula=adminFormula;
  try{
