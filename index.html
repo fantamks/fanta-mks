@@ -488,9 +488,17 @@ body.admin-view #adminDiag{display:block!important}
 <div class='panel' style='margin-top:16px;border:1px solid #76571d'><div class='admin-section-title'><div><span class='small'>STRUMENTO DI COLLAUDO · SOLO DATI SIMULATI</span><h2>Carica dati test</h2></div><button id='seedTestBtn' class='action' onclick='seedTestRound()'>CARICA DATI TEST</button></div><p class='tag'>Compila e salva online tutte le Formule e i Team del Round aperto con posizioni di prova senza duplicati. Sovrascrive i risultati già inseriti nel Round selezionato. Non finalizza né pubblica automaticamente.</p><div id='seedTestStatus' class='small'></div></div>
 <div class='panel' style='margin-top:16px;border:1px solid #7a3131'><div class='admin-section-title'><div><span class='small'>MANUTENZIONE · SOLO ROUND DI PROVA</span><h2>Pulisci dati test</h2></div><button id='clearTestBtn' class='action' onclick='clearTestRound()'>PULISCI DATI TEST</button></div><p class='tag'>Elimina soltanto risultati piloti, gare, Pole, giri veloci e classifiche Team del Round TEST selezionato. Non elimina Round, piloti, Team, account o fantasquadre. Disponibile solo per Round APERTI.</p><div id='clearTestStatus' class='small'></div></div>
 <div class='panel' style='margin-top:16px;border:1px solid #365477'><div class='admin-section-title'><div><span class='small'>DIAGNOSTICA ADMIN · SOLA LETTURA</span><h2>Dettaglio Fantapunti – Round TEST</h2></div><button class='action' onclick='showTestPointsDetail()'>VERIFICA PUNTEGGI</button></div><p class='tag'>Mostra i punteggi del Round TEST selezionato senza inserirli nella classifica ufficiale. Non modifica alcun dato.</p><div id='testPointsDetail' class='calcbox small'>Seleziona un Round TEST e premi VERIFICA PUNTEGGI.</div></div>
+<div class='panel' style='margin-top:16px;border:1px solid #365477'>
+<div class='admin-section-title'><div><span class='small'>DIAGNOSTICA ADMIN · SOLO SIMULAZIONE LOCALE</span><h2>Simulatore parità e spareggi</h2></div><button class='action' onclick='runTieSimulator()'>VERIFICA SPAREGGI</button></div>
+<p class='tag'>Confronta due fantasquadre fittizie: prima Fantapunti, poi minori FC spesi, poi maggiori vittorie Round FANTA. Se tutti i valori coincidono, ex aequo. Non salva e non modifica Supabase.</p>
+<div style='display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px'>
+<div><b>Fantasquadra A</b><label class='small' for='tieAPts'>Fantapunti</label><input id='tieAPts' type='number' step='0.1' value='200'><label class='small' for='tieAFc'>FC spesi</label><input id='tieAFc' type='number' min='0' max='100' value='95'><label class='small' for='tieAWins'>Vittorie Round</label><input id='tieAWins' type='number' min='0' step='1' value='1'></div>
+<div><b>Fantasquadra B</b><label class='small' for='tieBPts'>Fantapunti</label><input id='tieBPts' type='number' step='0.1' value='200'><label class='small' for='tieBFc'>FC spesi</label><input id='tieBFc' type='number' min='0' max='100' value='100'><label class='small' for='tieBWins'>Vittorie Round</label><input id='tieBWins' type='number' min='0' step='1' value='2'></div>
+</div><div id='tieSimResult' class='calcbox small' style='margin-top:12px' aria-live='polite'>Premi VERIFICA SPAREGGI per simulare il primo criterio.</div>
+</div>
 <div class='panel' style='margin-top:16px'><div class='admin-section-title'><div><span class='small'>STEP 4 · CONTROLLO</span><h2>Controllo Round</h2></div><button class='action' onclick='refreshAdminValidation()'>AGGIORNA CONTROLLO</button></div><div id='adminValidation' class='admin-checks'></div></div>
 <div class='panel' style='margin-top:16px'><span class='small'>STEP 5 · FINALIZZA</span><h2>Pubblica il Round</h2><p class='tag'>La finalizzazione blocca i risultati e aggiorna i Fantapunti. Per correggere un errore potrai riaprire l'appuntamento.</p><button id='finalizeRoundBtn' class='action primary admin-finalize' style='width:100%' onclick='finalizeRoundAndCalculate()'>FINALIZZA ROUND E CALCOLA</button></div>
-</section><div class='footer'>0.9.11.8.9 · autenticazione e salvataggio online · Listone Test V2 provvisorio.</div></div><script>
+</section><div class='footer'>0.9.11.8.10 · autenticazione e salvataggio online · Listone Test V2 provvisorio.</div></div><script>
 let drivers=[];
 let teams=[];
 const SUPABASE_URL='https://mirqvltmcksivuenkuen.supabase.co';
@@ -981,6 +989,20 @@ function fmtPts(value){
   return (Math.round((Number(value)+Number.EPSILON)*10)/10).toFixed(1);
 }
  function fantasyEventPoints(teamData,ev){ev=normalizeEvent(ev);let pts=teamData.pilots.reduce((sum,id)=>{let r=ev.pilots[id]||{};let present=ev.type==='iron'?(r.iron||0)>0:((r.s||0)>0||(r.g||0)>0);return sum+pilotEventPoints(id,ev)+(teamData.captain===id&&present?5:0)},0);let tp=ev.teams[teamData.team]||99;return pts+(teamPts[tp]||1)}
+function compareFantaTie(a,b){
+ if(a.points!==b.points)return {winner:a.points>b.points?'A':'B',reason:'Maggiori Fantapunti'};
+ if(a.fc!==b.fc)return {winner:a.fc<b.fc?'A':'B',reason:'Minori FantaCrediti spesi'};
+ if(a.wins!==b.wins)return {winner:a.wins>b.wins?'A':'B',reason:'Maggiori vittorie nei Round FANTA'};
+ return {winner:null,reason:'Ex aequo: tutti i criteri coincidono'};
+}
+function runTieSimulator(){
+ const out=$('tieSimResult');
+ const read=(prefix)=>({points:Number($(prefix+'Pts').value),fc:Number($(prefix+'Fc').value),wins:Number($(prefix+'Wins').value)});
+ const a=read('tieA'),b=read('tieB');
+ if([a,b].some(x=>![x.points,x.fc,x.wins].every(Number.isFinite)||x.fc<0||x.fc>100||x.wins<0||!Number.isInteger(x.wins))){out.textContent='Valori non validi: controlla punti, FC (0–100) e vittorie (interi non negativi).';return}
+ const result=compareFantaTie(a,b);
+ out.textContent=(result.winner?'Prevale Fantasquadra '+result.winner:'Parità confermata')+' · '+result.reason+'. Simulazione locale: non verifica ancora l’ordinamento della classifica pubblica.';
+}
 async function showTestPointsDetail(){
  const out=$('testPointsDetail');
  const meta=adminEvents.find(x=>String(x.id)===String(activeEventId));
