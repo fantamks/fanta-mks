@@ -489,7 +489,7 @@ body.admin-view #adminDiag{display:block!important}
 <div class='panel' style='margin-top:16px;border:1px solid #7a3131'><div class='admin-section-title'><div><span class='small'>MANUTENZIONE · SOLO ROUND DI PROVA</span><h2>Pulisci dati test</h2></div><button id='clearTestBtn' class='action' onclick='clearTestRound()'>PULISCI DATI TEST</button></div><p class='tag'>Elimina soltanto risultati piloti, gare, Pole, giri veloci e classifiche Team del Round TEST selezionato. Non elimina Round, piloti, Team, account o fantasquadre. Disponibile solo per Round APERTI.</p><div id='clearTestStatus' class='small'></div></div>
 <div class='panel' style='margin-top:16px'><div class='admin-section-title'><div><span class='small'>STEP 4 · CONTROLLO</span><h2>Controllo Round</h2></div><button class='action' onclick='refreshAdminValidation()'>AGGIORNA CONTROLLO</button></div><div id='adminValidation' class='admin-checks'></div></div>
 <div class='panel' style='margin-top:16px'><span class='small'>STEP 5 · FINALIZZA</span><h2>Pubblica il Round</h2><p class='tag'>La finalizzazione blocca i risultati e aggiorna i Fantapunti. Per correggere un errore potrai riaprire l'appuntamento.</p><button id='finalizeRoundBtn' class='action primary admin-finalize' style='width:100%' onclick='finalizeRoundAndCalculate()'>FINALIZZA ROUND E CALCOLA</button></div>
-</section><div class='footer'>0.9.11.8.7 · autenticazione e salvataggio online · Listone Test V2 provvisorio.</div></div><script>
+</section><div class='footer'>0.9.11.8.8 · autenticazione e salvataggio online · Listone Test V2 provvisorio.</div></div><script>
 let drivers=[];
 let teams=[];
 const SUPABASE_URL='https://mirqvltmcksivuenkuen.supabase.co';
@@ -975,7 +975,7 @@ async function loadEventFromSupabase(eventId){
 }
 async function selectAdminEvent(){activeEventId=$('adminEventSelect').value||'';if(activeEventId)localStorage.setItem('fantaMksActiveEventId',activeEventId);else localStorage.removeItem('fantaMksActiveEventId');let e=adminEvents.find(x=>String(x.id)===String(activeEventId));if(e){$('eventType').value=e.tipo||'gp';try{await loadEventFromSupabase(activeEventId)}catch(err){$('calcStatus').innerHTML=`<span class='warn'>Errore lettura risultati online: ${err.message}</span>`}}updateActiveEventInfo();renderAdminBody()}
 
-function pilotEventPoints(id,ev){ev=normalizeEvent(ev);let d=drivers[id],r=ev.pilots[id]||{s:0,g:0,iron:0,pen:0},f=ev.formula[d.formula]||blankFormula();let base=ev.type==='iron'?(posPts[r.iron]||0)*coeff[d.formula]:((posPts[r.s]||0)+(posPts[r.g]||0))*coeff[d.formula];let bonus=(f.pole===id?5:0)+(ev.type==='iron'?(f.fastIron===id?3:0):((f.fastSprint===id?3:0)+(f.fastGP===id?3:0)));return base+bonus-(r.pen||0)*3}
+function pilotEventPoints(id,ev){ev=normalizeEvent(ev);let d=drivers[id],r=ev.pilots[id]||{s:0,g:0,iron:0,pen:0},f=ev.formula[d.formula]||blankFormula();if(r._loaded && (ev.type==='iron'?!(r.iron>0):!(r.s>0||r.g>0)))return 0;let base=ev.type==='iron'?(posPts[r.iron]||0)*coeff[d.formula]:((posPts[r.s]||0)+(posPts[r.g]||0))*coeff[d.formula];let bonus=(f.pole===id?5:0)+(ev.type==='iron'?(f.fastIron===id?3:0):((f.fastSprint===id?3:0)+(f.fastGP===id?3:0)));return base+bonus-(r.pen||0)*3}
 function fmtPts(value){
   return (Math.round((Number(value)+Number.EPSILON)*10)/10).toFixed(1);
 }
@@ -1166,7 +1166,12 @@ function validateAdminEvent(ev){
  ['MK1','MK2','MK3','Ladies'].forEach(f=>{
   let list=drivers.filter(d=>d.formula===f),missing=list.filter(d=>!ev.pilots[d.id]?._loaded),dups=[],fields=ev.type==='iron'?['iron']:['s','g'];
   fields.forEach(k=>{let seen={};list.forEach(d=>{let r=ev.pilots[d.id];if(!r?._loaded)return;let v=+r[k]||0;if(v>0){if(seen[v]!=null)dups.push(`${k==='iron'?'IRON GP':k==='s'?'SPRINT':'GP RACE'} posizione ${v}`);else seen[v]=d.id}})});
-  let parts=[];if(missing.length)parts.push(`${missing.length} piloti da compilare`);if(dups.length)parts.push(`posizioni duplicate: ${[...new Set(dups)].join(', ')}`);let ok=!parts.length;if(!ok)allGood=false;checks.push({ok,text:`${f}: ${ok?'completa':parts.join(' · ')}`});
+  let parts=[];if(missing.length)parts.push(`${missing.length} piloti da compilare`);if(dups.length)parts.push(`posizioni duplicate: ${[...new Set(dups)].join(', ')}`);
+  // Un bonus assegnato a un assente è incompatibile con i risultati ufficiali.
+  const bonus=ev.formula[f]||blankFormula();
+  const bonusFields=ev.type==='iron'?[['pole','Pole Position'],['fastIron','Giro Veloce Iron GP']]:[['pole','Pole Position'],['fastSprint','Giro Veloce Sprint'],['fastGP','Giro Veloce GP Race']];
+  for(const [key,label] of bonusFields){const id=Number(bonus[key]);if(!Number.isInteger(id)||id<0)continue;const d=drivers[id];if(!d||d.formula!==f){parts.push(`${label}: pilota non valido per ${f}`);continue}const r=ev.pilots[id];if(r?._loaded && (ev.type==='iron'?!(r.iron>0):!(r.s>0||r.g>0)))parts.push(`${d.name} ASSENTE ma assegnatario di ${label}`)}
+  let ok=!parts.length;if(!ok)allGood=false;checks.push({ok,text:`${f}: ${ok?'completa':parts.join(' · ')}`});
  });
  let vals=teams.map(t=>ev.teams[t.id]).filter(v=>v!=null),teamMissing=teams.length-vals.length,teamDup=vals.length!==new Set(vals).size,teamOk=!teamMissing&&!teamDup;if(!teamOk)allGood=false;checks.push({ok:teamOk,text:`Team: ${teamMissing?teamMissing+' posizioni mancanti':teamDup?'posizioni duplicate':'classifica completa'}`});
  let warnings=[];
