@@ -486,9 +486,10 @@ body.admin-view #adminDiag{display:block!important}
 <div class='admin-grid'><div class='panel'><h2 id='adminFormulaTitle'>Risultati MK1</h2><p class='small' id='adminHelp'></p><div id='adminHeader' class='admin-resultrow small'></div><div id='adminDrivers'></div><div class='admin-savebar'><button id='saveFormulaBtn' class='action primary' onclick='calculateEvent()'>SALVA FORMULA</button><span id='formulaSaveHint' class='small'>Salva la Formula prima di passare alla successiva.</span></div></div><div><div class='panel'><span class='small'>BONUS FORMULA</span><h2 id='bonusFormulaTitle'>MK1</h2><label class='small'>POLE POSITION (+5)</label><select id='pole'></select><div id='fastGpBox'><br><label class='small'>GIRO VELOCE SPRINT (+3)</label><select id='fastSprint'></select><br><br><label class='small'>GIRO VELOCE GP RACE (+3)</label><select id='fastGP'></select></div><div id='fastIronBox' style='display:none'><br><label class='small'>GIRO VELOCE IRON GP (+3)</label><select id='fastIron'></select></div></div><div id='calcStatus' class='calcbox small'>Seleziona un Round e inserisci i risultati.</div></div></div>
 <div class='panel' style='margin-top:16px'><div class='admin-section-title'><div><span class='small'>STEP 3 · TEAM</span><h2>Classifica Team MKS</h2></div><span class='small'>Inserisci la posizione ufficiale di ogni Team.</span></div><div id='adminTeams'></div></div>
 <div class='panel' style='margin-top:16px;border:1px solid #76571d'><div class='admin-section-title'><div><span class='small'>STRUMENTO DI COLLAUDO · SOLO DATI SIMULATI</span><h2>Carica dati test</h2></div><button id='seedTestBtn' class='action' onclick='seedTestRound()'>CARICA DATI TEST</button></div><p class='tag'>Compila e salva online tutte le Formule e i Team del Round aperto con posizioni di prova senza duplicati. Sovrascrive i risultati già inseriti nel Round selezionato. Non finalizza né pubblica automaticamente.</p><div id='seedTestStatus' class='small'></div></div>
+<div class='panel' style='margin-top:16px;border:1px solid #7a3131'><div class='admin-section-title'><div><span class='small'>MANUTENZIONE · SOLO ROUND DI PROVA</span><h2>Pulisci dati test</h2></div><button id='clearTestBtn' class='action' onclick='clearTestRound()'>PULISCI DATI TEST</button></div><p class='tag'>Elimina soltanto risultati piloti, gare, Pole, giri veloci e classifiche Team del Round TEST selezionato. Non elimina Round, piloti, Team, account o fantasquadre. Disponibile solo per Round APERTI.</p><div id='clearTestStatus' class='small'></div></div>
 <div class='panel' style='margin-top:16px'><div class='admin-section-title'><div><span class='small'>STEP 4 · CONTROLLO</span><h2>Controllo Round</h2></div><button class='action' onclick='refreshAdminValidation()'>AGGIORNA CONTROLLO</button></div><div id='adminValidation' class='admin-checks'></div></div>
 <div class='panel' style='margin-top:16px'><span class='small'>STEP 5 · FINALIZZA</span><h2>Pubblica il Round</h2><p class='tag'>La finalizzazione blocca i risultati e aggiorna i Fantapunti. Per correggere un errore potrai riaprire l'appuntamento.</p><button id='finalizeRoundBtn' class='action primary admin-finalize' style='width:100%' onclick='finalizeRoundAndCalculate()'>FINALIZZA ROUND E CALCOLA</button></div>
-</section><div class='footer'>0.9.11.8.5 · autenticazione e salvataggio online · Listone Test V2 provvisorio.</div></div><script>
+</section><div class='footer'>0.9.11.8.6 · autenticazione e salvataggio online · Listone Test V2 provvisorio.</div></div><script>
 let drivers=[];
 let teams=[];
 const SUPABASE_URL='https://mirqvltmcksivuenkuen.supabase.co';
@@ -1106,7 +1107,7 @@ function renderAdminBody(){
  let f=ev.formula[adminFormula]||blankFormula();[['pole','pole'],['fastSprint','fastSprint'],['fastGP','fastGP'],['fastIron','fastIron']].forEach(([id,k])=>{let v=f[k];$(id).value=v;$(id).onchange=()=>bonusChanged(k,id)});
  $('fastGpBox').style.display=type==='gp'?'block':'none';$('fastIronBox').style.display=type==='iron'?'block':'none';
  $('adminTeams').innerHTML=teams.map(t=>`<div class='admin-teamrow'><b>${t.name}</b><input id='t${t.id}' type='number' min='1' max='99' placeholder='Pos.' value='${ev.teams[t.id]??''}'></div>`).join('');
- let meta=adminEvents.find(x=>String(x.id)===String(activeEventId)),locked=!!meta?.completato;let testBtn=$('seedTestBtn');if(testBtn){let permitted=!!meta&&!locked&&/\btest\b/i.test(meta.nome||'');testBtn.disabled=!permitted;testBtn.title=permitted?'Solo Round di prova':'Disponibile solo per Round APERTI con TEST nel nome'}['eventType','pole','fastSprint','fastGP','fastIron'].forEach(id=>{if($(id))$(id).disabled=locked});document.querySelectorAll('#adminDrivers input,#adminTeams input').forEach(el=>el.disabled=locked);let sb=$('saveFormulaBtn');if(sb){sb.disabled=locked;sb.textContent='SALVA '+adminFormula;sb.style.opacity=locked?'.45':'1'}let fb=$('finalizeRoundBtn');if(fb){fb.disabled=locked;fb.style.opacity=locked?'.45':'1'}if($('calcStatus'))$('calcStatus').innerHTML=locked?`<span class='ok'>✓ Round FINALIZZATO. I risultati sono bloccati.</span>`:`<span class='small'>Round APERTO. I risultati possono essere modificati.</span>`;refreshAdminValidation(false);
+ let meta=adminEvents.find(x=>String(x.id)===String(activeEventId)),locked=!!meta?.completato;let testBtn=$('seedTestBtn');if(testBtn){let permitted=!!meta&&!locked&&/\btest\b/i.test(meta.nome||'');testBtn.disabled=!permitted;testBtn.title=permitted?'Solo Round di prova':'Disponibile solo per Round APERTI con TEST nel nome'}let clearBtn=$('clearTestBtn');if(clearBtn){let permitted=!!meta&&!locked&&/\btest\b/i.test(meta.nome||'');clearBtn.disabled=!permitted;clearBtn.title=permitted?'Pulisce solo il Round TEST selezionato':'Disponibile solo per Round TEST APERTI'}['eventType','pole','fastSprint','fastGP','fastIron'].forEach(id=>{if($(id))$(id).disabled=locked});document.querySelectorAll('#adminDrivers input,#adminTeams input').forEach(el=>el.disabled=locked);let sb=$('saveFormulaBtn');if(sb){sb.disabled=locked;sb.textContent='SALVA '+adminFormula;sb.style.opacity=locked?'.45':'1'}let fb=$('finalizeRoundBtn');if(fb){fb.disabled=locked;fb.style.opacity=locked?'.45':'1'}if($('calcStatus'))$('calcStatus').innerHTML=locked?`<span class='ok'>✓ Round FINALIZZATO. I risultati sono bloccati.</span>`:`<span class='small'>Round APERTO. I risultati possono essere modificati.</span>`;refreshAdminValidation(false);
 }
 function toggleAbsent(id){let a=$('a'+id),type=$('eventType').value;if(type==='gp'){if($('s'+id))$('s'+id).disabled=a.checked;if($('g'+id))$('g'+id).disabled=a.checked}else if($('i'+id))$('i'+id).disabled=a.checked;if(a.checked){if($('s'+id))$('s'+id).value='';if($('g'+id))$('g'+id).value='';if($('i'+id))$('i'+id).value=''} }
 function captureCurrentFormula(ev){
@@ -1202,6 +1203,39 @@ async function seedTestRound(){
   status.innerHTML=validation?.ok?'<span class="ok">✓ Dati test salvati e riletti da Supabase. Controllo superato. Il Round è ancora APERTO: puoi finalizzarlo manualmente.</span>':'<span class="warn">Dati test caricati, ma il controllo segnala ancora anomalie. Non finalizzare prima di verificarle.</span>';
  }catch(e){adminFormula=previousFormula;status.textContent='Errore durante il caricamento: '+e.message+'; il Round potrebbe contenere dati parziali. Non finalizzare.';renderAdminBody();refreshAdminValidation(false)}
  finally{button.disabled=false}
+}
+async function clearTestRound(){
+ const status=$('clearTestStatus'),btn=$('clearTestBtn');
+ if(!status||!btn)return;
+ const id=Number(activeEventId),meta=adminEvents.find(e=>String(e.id)===String(activeEventId));
+ if(!Number.isSafeInteger(id)||id<=0||!meta||meta.completato||!/\btest\b/i.test(meta.nome||'')){
+  status.textContent='Operazione negata: seleziona un Round TEST APERTO.';return;
+ }
+ if(!session?.access_token||!(await checkAdmin())){status.textContent='Operazione riservata agli amministratori.';return;}
+ btn.disabled=true;
+ try{
+  const races=await api('gare?select=id,tipo,formula&evento_id=eq.'+id)||[];
+  const poles=await api('pole?select=pilota_id&evento_id=eq.'+id)||[];
+  const teamRows=await api('risultati_team?select=team_id&evento_id=eq.'+id)||[];
+  const raceIds=races.map(r=>Number(r.id));
+  const results=raceIds.length?(await api('risultati?select=pilota_id&gara_id=in.('+raceIds.join(',')+')')||[]):[];
+  const summary=`Round: ${meta.nome}\nRisultati piloti: ${results.length}\nGare/manche: ${races.length}\nPole: ${poles.length}\nRisultati Team: ${teamRows.length}`;
+  if(!confirm('ANTEPRIMA PULIZIA DATI TEST\n\n'+summary+'\n\nQuesta operazione cancella definitivamente i dati elencati. Continuare?')){status.textContent='Pulizia annullata.';return;}
+  if(prompt('Conferma scrivendo esattamente PULISCI TEST '+id)!=='PULISCI TEST '+id){status.textContent='Pulizia annullata: conferma non valida.';return;}
+  // Ricontrolla lo stato online prima di ogni cancellazione.
+  const latest=await api('eventi?select=id,nome,completato&id=eq.'+id)||[];
+  if(latest.length!==1||latest[0].completato||!/\btest\b/i.test(latest[0].nome||''))throw Error('Round non più idoneo alla pulizia.');
+  status.textContent='Pulizia in corso...';
+  if(raceIds.length)await api('risultati?gara_id=in.('+raceIds.join(',')+')',{method:'DELETE'});
+  await api('pole?evento_id=eq.'+id,{method:'DELETE'});
+  await api('risultati_team?evento_id=eq.'+id,{method:'DELETE'});
+  if(raceIds.length)await api('gare?evento_id=eq.'+id,{method:'DELETE'});
+  localStorage.removeItem('fantaMksEvent_'+id);
+  await loadEventFromSupabase(id);
+  renderAdminBody();refreshAdminValidation(false);
+  status.innerHTML='<span class="ok">✓ Dati simulati eliminati dal Round selezionato. Round ancora APERTO; anagrafiche e fantasquadre conservate.</span>';
+ }catch(e){status.textContent='Pulizia non completata: '+e.message+'. Controlla i dati online prima di riprovare.';}
+ finally{const current=adminEvents.find(e=>String(e.id)===String(activeEventId));btn.disabled=!current||current.completato||!/\btest\b/i.test(current.nome||'');}
 }
 async function finalizeRoundAndCalculate(){if(!activeEventId){$('calcStatus').innerHTML=`<span class='warn'>Seleziona prima un Round.</span>`;return}let ev=normalizeEvent(getEvent());captureCurrentFormula(ev);saveLocalEvent(ev);let v=refreshAdminValidation(false);if(!v?.ok){$('calcStatus').innerHTML=`<span class='warn'>Controllo non superato: completa o correggi i dati evidenziati.</span>`;return}let e=adminEvents.find(x=>String(x.id)===String(activeEventId));if(!confirm(`Finalizzare ${e?.nome||'questo Round'}? I risultati verranno bloccati e la classifica FANTA aggiornata.`))return;try{await saveCurrentFormulaOnline(ev);await setEventCompleted(true);$('calcStatus').innerHTML=`<span class='ok'>✓ Round finalizzato e Fantapunti aggiornati.</span>`}catch(err){$('calcStatus').innerHTML=`<span class='warn'>Errore durante la finalizzazione: ${err.message}</span>`}}
 
