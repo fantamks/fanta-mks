@@ -489,7 +489,7 @@ body.admin-view #adminDiag{display:block!important}
 <div class='panel' style='margin-top:16px;border:1px solid #7a3131'><div class='admin-section-title'><div><span class='small'>MANUTENZIONE · SOLO ROUND DI PROVA</span><h2>Pulisci dati test</h2></div><button id='clearTestBtn' class='action' onclick='clearTestRound()'>PULISCI DATI TEST</button></div><p class='tag'>Elimina soltanto risultati piloti, gare, Pole, giri veloci e classifiche Team del Round TEST selezionato. Non elimina Round, piloti, Team, account o fantasquadre. Disponibile solo per Round APERTI.</p><div id='clearTestStatus' class='small'></div></div>
 <div class='panel' style='margin-top:16px'><div class='admin-section-title'><div><span class='small'>STEP 4 · CONTROLLO</span><h2>Controllo Round</h2></div><button class='action' onclick='refreshAdminValidation()'>AGGIORNA CONTROLLO</button></div><div id='adminValidation' class='admin-checks'></div></div>
 <div class='panel' style='margin-top:16px'><span class='small'>STEP 5 · FINALIZZA</span><h2>Pubblica il Round</h2><p class='tag'>La finalizzazione blocca i risultati e aggiorna i Fantapunti. Per correggere un errore potrai riaprire l'appuntamento.</p><button id='finalizeRoundBtn' class='action primary admin-finalize' style='width:100%' onclick='finalizeRoundAndCalculate()'>FINALIZZA ROUND E CALCOLA</button></div>
-</section><div class='footer'>0.9.11.8.6 · autenticazione e salvataggio online · Listone Test V2 provvisorio.</div></div><script>
+</section><div class='footer'>0.9.11.8.7 · autenticazione e salvataggio online · Listone Test V2 provvisorio.</div></div><script>
 let drivers=[];
 let teams=[];
 const SUPABASE_URL='https://mirqvltmcksivuenkuen.supabase.co';
@@ -807,7 +807,8 @@ async function loadHomeDashboard(){
    if(posMini){
      const myUid=session?.user?.id||null;
      const myIndex=myUid?rows.findIndex(r=>String(r.user_id)===String(myUid)):-1;
-     posMini.textContent=myIndex>=0?`#${myIndex+1}`:'—';
+     const officialDone=await loadSeasonEvents({finalizedOnly:true});
+     posMini.textContent=myIndex>=0&&officialDone.length?`#${myIndex+1}`:'—';
    }
    if(!rows.length){
      topBox.textContent='La classifica prenderà vita con l’inizio della stagione.';
@@ -873,9 +874,13 @@ function toggleDriver(id){
 }function toggleTeam(id){team=team===id?null:id;render()}
 function getSaved(){try{return JSON.parse(localStorage.getItem('fantaMksDemo'))}catch(e){return null}}
 $('save').onclick=saveTeamOnline
-async function loadSeasonEvents(){
+// Calendario pubblico: i Round di collaudo non entrano mai nei punteggi reali.
+// L'Area Admin continua a gestire tutti i Round, compresi quelli TEST.
+function isTestRound(meta){return /\btest\b/i.test(String(meta?.nome||''))}
+async function loadSeasonEvents({finalizedOnly=false}={}){
  if(!session?.access_token)return [];
- const events=await api('eventi?select=id,nome,data,tipo,completato&order=data.asc,id.asc')||[];
+ const allEvents=await api('eventi?select=id,nome,data,tipo,completato&order=data.asc,id.asc')||[];
+ const events=allEvents.filter(e=>!isTestRound(e)&&(!finalizedOnly||e.completato));
  if(!events.length)return [];
  const races=await api('gare?select=id,evento_id,tipo,formula&order=id.asc')||[];
  const raceIds=races.map(r=>r.id);
@@ -903,12 +908,12 @@ async function renderMy(){
  let d=getSaved();if(!d){$('myContent').innerHTML=`<div class='hero'><h2>La mia squadra</h2><div class='tag'>Non hai ancora salvato una Fantasquadra.</div><br><button class='action primary' onclick="showPage('create')">CREA SQUADRA</button></div>`;return}
  $('myContent').innerHTML=`<div class='hero'><h2>La mia squadra</h2><div class='tag'>Calcolo stagione da Supabase...</div></div>`;
  try{
-  const season=await loadSeasonEvents();
+  const season=await loadSeasonEvents({finalizedOnly:true});
   const last=season.length?season[season.length-1]:null;
   const lastPts=last?fantasyEventPoints(d,last.ev):0;
   const total=seasonPoints(d,season);
   let pos='—';
-  try{const realRank=await getRealSeasonRanking();const idx=realRank.findIndex(x=>String(x.dbid)===String(d.dbid));if(idx>=0)pos=idx+1}catch(rankErr){console.error(rankErr)}
+  try{const realRank=await getRealSeasonRanking();const idx=realRank.findIndex(x=>String(x.dbid)===String(d.dbid));if(idx>=0&&season.length)pos=idx+1}catch(rankErr){console.error(rankErr)}
   $('myContent').innerHTML=`<div class='hero myteam-hero'><span class='small'>LA MIA FANTASQUADRA</span><h2>${d.name}</h2><div class='tag'>Rosa salvata · ${d.spent} FC utilizzati · ${100-d.spent} FC residui</div><button class='action myteam-rank-btn' onclick="showPage('rank')">VEDI CLASSIFICA</button></div><div class='stats'><div class='stat'><span class='small'>CLASSIFICA</span><b>#${pos}</b></div><div class='stat'><span class='small'>TOTALE STAGIONE</span><b>${fmtPts(total)} pt</b></div><div class='stat'><span class='small'>ULTIMO APPUNTAMENTO</span><b>${fmtPts(lastPts)} pt</b></div><div class='stat'><span class='small'>BUDGET USATO</span><b>${d.spent} FC</b></div></div><div class='teamcard myteam-roster-grid'><div class='panel'><span class='small'>LA TUA ROSA</span><h2>I tuoi 5 piloti</h2><ul class='roster'>${d.pilots.map(id=>`<li><span><b>${drivers[id].name}</b> <span class='badge'>${drivers[id].formula}</span>${d.captain===id?` <span class='captain'>★ CAPITANO</span>`:''}</span><span>${drivers[id].price} FC</span></li>`).join('')}</ul></div><div class='panel myteam-mks-team'><span class='small'>TEAM MKS SCELTO</span><h2>${teams[d.team].name}</h2><p class='tag'>Quotazione: <b>${teams[d.team].price} FC</b></p></div></div><div class='panel' style='margin-top:16px'><span class='small'>STAGIONE 2027</span><h2>Andamento stagione</h2>${season.length?`<div class='roster'>${season.map((x,i)=>{const pts=fantasyEventPoints(d,x.ev);const tipo=x.meta.tipo==='IRON'?'IRON GP':x.meta.tipo==='GP'?'SPRINT RACE + GP RACE':x.meta.tipo;return `<li><span><b>${x.meta.nome}</b><br><span class='small'>${x.meta.data||''} · ${tipo||''}</span></span><span><b>${fmtPts(pts)} pt</b></span></li>`}).join('')}</div><div style='display:flex;justify-content:space-between;align-items:center;margin-top:18px;padding-top:16px;border-top:1px solid var(--line)'><b>TOTALE STAGIONE</b><b style='font-size:22px'>${fmtPts(total)} pt</b></div>`:`<p class='tag'>Nessun appuntamento calcolato.</p>`}</div>`;
  }catch(e){$('myContent').innerHTML=`<div class='hero'><h2>La mia squadra</h2><div class='warn'>Errore lettura stagione: ${e.message}</div></div>`}
 }
@@ -991,7 +996,7 @@ async function loadAllFantasyTeams(){
  }).filter(x=>x.pilots.length===5&&x.team>=0&&x.captain!==null&&x.captain>=0);
 }
 async function getRealSeasonRanking(){
- const [season,squads]=await Promise.all([loadSeasonEvents(),loadAllFantasyTeams()]);
+ const [season,squads]=await Promise.all([loadSeasonEvents({finalizedOnly:true}),loadAllFantasyTeams()]);
  const last=season.length?season[season.length-1]:null;
  return squads.map(d=>({
    ...d,
@@ -1055,6 +1060,8 @@ async function renderRankingBase(){
  if($('rankPodium'))$('rankPodium').innerHTML='';
  try{
   const rows=await getRealSeasonRanking(); rankingRowsCache=rows;
+  const officialSeason=await loadSeasonEvents({finalizedOnly:true});
+  if(!officialSeason.length){$('ranking').innerHTML=`<tr><td colspan='5'>Classifica non ancora disponibile: nessun Round ufficiale finalizzato.</td></tr>`;if($('rankPodium'))$('rankPodium').innerHTML='';return;}
   if(!rows.length){$('ranking').innerHTML=`<tr><td colspan='5'>Nessuna Fantasquadra disponibile.</td></tr>`;return}
   const nicknames=await getPublicNicknames(rows.map(r=>r.user_id));
   renderRankingPodium(rows,nicknames);
@@ -1071,10 +1078,10 @@ async function renderRankingBase(){
 async function openPublicTeam(fid){
  document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));$('profile').classList.add('active');document.querySelectorAll('.nav button').forEach(x=>x.classList.remove('active'));$('publicTeamContent').innerHTML=`<div class='hero'><h2>Fantasquadra</h2><div class='tag'>Caricamento scheda...</div></div>`;
  try{
-  const [season,squads]=await Promise.all([loadSeasonEvents(),loadAllFantasyTeams()]);
+  const [season,squads]=await Promise.all([loadSeasonEvents({finalizedOnly:true}),loadAllFantasyTeams()]);
   const d=squads.find(x=>String(x.dbid)===String(fid));if(!d)throw new Error('Fantasquadra non trovata.');
   const ranking=squads.map(x=>({...x,total:seasonPoints(x,season)})).sort((a,b)=>b.total-a.total||a.spent-b.spent||a.name.localeCompare(b.name));
-  const pos=ranking.findIndex(x=>String(x.dbid)===String(fid))+1,total=seasonPoints(d,season),last=season.length?fantasyEventPoints(d,season[season.length-1].ev):0;
+  const pos=season.length?ranking.findIndex(x=>String(x.dbid)===String(fid))+1:'—',total=seasonPoints(d,season),last=season.length?fantasyEventPoints(d,season[season.length-1].ev):0;
   const nicknames=await getPublicNicknames([d.user_id]);const publicNick=nicknames[String(d.user_id)]||'';
   $('publicTeamContent').innerHTML=`<button class='action' onclick="showPage('rank')" style='margin-bottom:14px'>← TORNA ALLA CLASSIFICA</button><div class='hero'><span class='small'>SCHEDA FANTASQUADRA</span><h2 style='display:flex;align-items:center'>${badgeHTML(d.badge_id,d.badge_color,'public-team-badge')}${escPublic(d.name)}</h2><div class='tag'>${publicNick?`Partecipante: <b>@${escPublic(publicNick)}</b> · `:''}Rosa pubblica FANTA MKS 2027</div></div><div class='stats'><div class='stat'><span class='small'>CLASSIFICA</span><b>#${pos}</b></div><div class='stat'><span class='small'>TOTALE STAGIONE</span><b>${fmtPts(total)} pt</b></div><div class='stat'><span class='small'>ULTIMO APPUNTAMENTO</span><b>${fmtPts(last)} pt</b></div><div class='stat'><span class='small'>BUDGET USATO</span><b>${d.spent} FC</b></div></div><div class='public-roster-grid'><div class='panel'><span class='small'>LA ROSA</span><h2>I 5 piloti</h2><ul class='roster'>${d.pilots.map(id=>`<li><span><b>${drivers[id].name}</b> <span class='badge'>${drivers[id].formula}</span>${d.captain===id?` <span class='captain'>★ CAPITANO</span>`:''}</span><span>${drivers[id].price} FC</span></li>`).join('')}</ul></div><div class='panel public-team-choice'><h2>TEAM MKS SCELTO</h2><div class='public-team-name'>${teams[d.team].name}</div><p class='public-team-price'>Quotazione: ${teams[d.team].price} FC</p></div></div><div class='panel' style='margin-top:16px'><span class='small'>STAGIONE 2027</span><h2>Andamento stagione</h2>${season.length?`<div class='roster'>${season.map(x=>{const pts=fantasyEventPoints(d,x.ev),tipo=x.meta.tipo==='IRON'?'IRON GP':x.meta.tipo==='GP'?'SPRINT RACE + GP RACE':x.meta.tipo;return `<li><span><b>${x.meta.nome}</b><br><span class='small'>${x.meta.data||''} · ${tipo||''}</span></span><span><b>${fmtPts(pts)} pt</b></span></li>`}).join('')}</div><div style='display:flex;justify-content:space-between;align-items:center;margin-top:18px;padding-top:16px;border-top:1px solid var(--border)'><b>TOTALE STAGIONE</b><b style='font-size:22px'>${fmtPts(total)} pt</b></div>`:`<p class='tag'>Nessun appuntamento calcolato.</p>`}</div>`;
  }catch(e){$('publicTeamContent').innerHTML=`<button class='action' onclick="showPage('rank')">← TORNA ALLA CLASSIFICA</button><div class='hero' style='margin-top:14px'><h2>Fantasquadra</h2><div class='warn'>Errore lettura scheda: ${e.message}</div></div>`}
