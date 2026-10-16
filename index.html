@@ -502,7 +502,7 @@ body.admin-view #adminDiag{display:block!important}
 <div id='publicRankSimResult' class='calcbox small' aria-live='polite'>Premi SIMULA CLASSIFICA per eseguire i tre scenari.</div></div>
 <div class='panel' style='margin-top:16px'><div class='admin-section-title'><div><span class='small'>STEP 4 · CONTROLLO</span><h2>Controllo Round</h2></div><button class='action' onclick='refreshAdminValidation()'>AGGIORNA CONTROLLO</button></div><div id='adminValidation' class='admin-checks'></div></div>
 <div class='panel' style='margin-top:16px'><span class='small'>STEP 5 · FINALIZZA</span><h2>Pubblica il Round</h2><p class='tag'>La finalizzazione blocca i risultati e aggiorna i Fantapunti. Per correggere un errore potrai riaprire l'appuntamento.</p><button id='finalizeRoundBtn' class='action primary admin-finalize' style='width:100%' onclick='finalizeRoundAndCalculate()'>FINALIZZA ROUND E CALCOLA</button></div>
-</section><div class='footer'>0.9.11.8.14 · autenticazione e salvataggio online · Listone Test V2 provvisorio.</div></div><script>
+</section><div class='footer'>0.9.11.8.15 · autenticazione e salvataggio online · Listone Test V2 provvisorio.</div></div><script>
 let drivers=[];
 let teams=[];
 const SUPABASE_URL='https://mirqvltmcksivuenkuen.supabase.co';
@@ -802,16 +802,20 @@ async function loadHomeDashboard(){
  if(!seasonBox||!topBox)return;
 
  try{
-   const season=await loadSeasonEvents();
-   const completed=season.filter(x=>x.meta&&x.meta.completato);
-   const open=season.filter(x=>x.meta&&!x.meta.completato);
-   const next=open.length?open[0]:null;
-   const last=completed.length?completed[completed.length-1]:null;
+   // La HOME legge gli appuntamenti, non i risultati di gara: funziona anche prima dell'accesso.
+   const response=await fetch(SUPABASE_URL+'/rest/v1/eventi?select=id,nome,data,tipo,completato&order=data.asc,id.asc',{
+     headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+(session?.access_token||SUPABASE_KEY)}
+   });
+   if(!response.ok)throw new Error('Calendario non disponibile (HTTP '+response.status+')');
+   const allEvents=await response.json();
+   const season=allEvents.filter(e=>!isTestRound(e));
+   const completed=season.filter(e=>e.completato);
    const total=season.length;
-   seasonBox.innerHTML=`<div class='home-season-stats'><div class='home-stat'><span class='small'>DISPUTATI</span><b>${completed.length}</b></div><div class='home-stat'><span class='small'>ROUND 2027</span><b>${total}</b></div></div>` + (next?`<div class='home-next'><span class='small'>PROSSIMO APPUNTAMENTO</span><br><b>${escPublic(next.meta.nome)}</b><br><span class='tag'>${escPublic(next.meta.data||'')} · ${escPublic(next.meta.tipo==='IRON'?'IRON GP':'SPRINT RACE + GP RACE')}</span></div>`:(last?`<div class='home-next'><span class='small'>ULTIMO APPUNTAMENTO</span><br><b>${escPublic(last.meta.nome)}</b><br><span class='tag'>${escPublic(last.meta.data||'')}</span></div>`:'Calendario 2027 in preparazione.'));
+   seasonBox.innerHTML=`<div class='home-season-stats'><div class='home-stat'><span class='small'>DISPUTATI</span><b>${completed.length}</b></div><div class='home-stat'><span class='small'>ROUND 2027</span><b>${total}</b></div></div>`
+     + `<div class='home-next'>${total?'Calendario provvisorio 2027 – Date e circuiti in fase di definizione.':'Calendario 2027 in preparazione.'}</div>`;
  }catch(e){
    console.error('Home calendario',e);
-   seasonBox.textContent='Calendario 2027 in preparazione.';
+   seasonBox.textContent='Calendario 2027 temporaneamente non disponibile.';
  }
 
  try{
