@@ -502,7 +502,7 @@ body.admin-view #adminDiag{display:block!important}
 <div id='publicRankSimResult' class='calcbox small' aria-live='polite'>Premi SIMULA CLASSIFICA per eseguire i tre scenari.</div></div>
 <div class='panel' style='margin-top:16px'><div class='admin-section-title'><div><span class='small'>STEP 4 · CONTROLLO</span><h2>Controllo Round</h2></div><button class='action' onclick='refreshAdminValidation()'>AGGIORNA CONTROLLO</button></div><div id='adminValidation' class='admin-checks'></div></div>
 <div class='panel' style='margin-top:16px'><span class='small'>STEP 5 · FINALIZZA</span><h2>Pubblica il Round</h2><p class='tag'>La finalizzazione blocca i risultati e aggiorna i Fantapunti. Per correggere un errore potrai riaprire l'appuntamento.</p><button id='finalizeRoundBtn' class='action primary admin-finalize' style='width:100%' onclick='finalizeRoundAndCalculate()'>FINALIZZA ROUND E CALCOLA</button></div>
-</section><div class='footer'>0.9.11.8.11 · autenticazione e salvataggio online · Listone Test V2 provvisorio.</div></div><script>
+</section><div class='footer'>0.9.11.8.12 · autenticazione e salvataggio online · Listone Test V2 provvisorio.</div></div><script>
 let drivers=[];
 let teams=[];
 const SUPABASE_URL='https://mirqvltmcksivuenkuen.supabase.co';
@@ -932,7 +932,8 @@ async function renderMy(){
 }
 const posPts={1:30,2:26,3:23,4:21,5:20,6:19,7:18,8:17,9:16,10:15,11:14,12:13,13:12,14:11,15:10,16:9,17:8,18:7,19:6,20:5,21:4,22:3,23:2,24:1};
 const coeff={MK1:1.15,MK2:1.10,MK3:1.05,Ladies:0.90};
-const teamPts={1:10,2:8,3:6,4:5,5:4};
+const teamPts={1:10,2:8,3:6,4:5,5:4,6:3,7:2};
+function teamEventPoints(position){const p=Number(position);return Number.isInteger(p)&&p>0?(teamPts[p]??1):0;}
 let adminEvents=[];let activeEventId=localStorage.getItem('fantaMksActiveEventId')||'';
 function eventStorageKey(){return activeEventId?'fantaMksEvent_'+activeEventId:'fantaMksEvent'}
 function getEvent(){try{return JSON.parse(localStorage.getItem(eventStorageKey()))}catch(e){return null}}
@@ -992,7 +993,7 @@ function pilotEventPoints(id,ev){ev=normalizeEvent(ev);let d=drivers[id],r=ev.pi
 function fmtPts(value){
   return (Math.round((Number(value)+Number.EPSILON)*10)/10).toFixed(1);
 }
- function fantasyEventPoints(teamData,ev){ev=normalizeEvent(ev);let pts=teamData.pilots.reduce((sum,id)=>{let r=ev.pilots[id]||{};let present=ev.type==='iron'?(r.iron||0)>0:((r.s||0)>0||(r.g||0)>0);return sum+pilotEventPoints(id,ev)+(teamData.captain===id&&present?5:0)},0);let tp=ev.teams[teamData.team]||99;return pts+(teamPts[tp]||1)}
+ function fantasyEventPoints(teamData,ev){ev=normalizeEvent(ev);let pts=teamData.pilots.reduce((sum,id)=>{let r=ev.pilots[id]||{};let present=ev.type==='iron'?(r.iron||0)>0:((r.s||0)>0||(r.g||0)>0);return sum+pilotEventPoints(id,ev)+(teamData.captain===id&&present?5:0)},0);let tp=ev.teams[teamData.team];return pts+teamEventPoints(tp)}
 function compareFantaTie(a,b){
  if(a.points!==b.points)return {winner:a.points>b.points?'A':'B',reason:'Maggiori Fantapunti'};
  if(a.fc!==b.fc)return {winner:a.fc<b.fc?'A':'B',reason:'Minori FantaCrediti spesi'};
@@ -1029,7 +1030,7 @@ async function showTestPointsDetail(){
     rows+=`<tr><td>${d.name}${squad.captain===id?' ★':''}</td><td>${present?(ev.type==='iron'?('Iron '+r.iron):('Sprint '+r.s+' / GP '+r.g)):'ASSENTE'}</td><td style='text-align:right'>${fmtPts(base)}</td><td style='text-align:right'>${fmtPts(captain)}</td><td style='text-align:right'><b>${fmtPts(subtotal)}</b></td></tr>`;
    }
    const teamPos=ev.teams[squad.team]||99;
-   const teamScore=teamPts[teamPos]||1;
+   const teamScore=teamEventPoints(ev.teams[squad.team]);
    const grand=totalPilots+teamScore;
    html+=`<div style='margin:12px 0 6px'><b>${squad.name}</b> · Team ${teams[squad.team]?.name||'—'} (${teamPos===99?'senza posizione':teamPos+'°'})</div><div style='overflow-x:auto'><table class='table' style='width:100%'><thead><tr><th>Pilota</th><th>Risultato</th><th>Pt pilota</th><th>Capitano</th><th>Totale</th></tr></thead><tbody>${rows}</tbody></table></div><div style='margin:8px 0 16px'>Piloti: <b>${fmtPts(totalPilots)}</b> · Team: <b>${fmtPts(teamScore)}</b> · Totale Round: <b>${fmtPts(grand)} pt</b></div>`;
   }
