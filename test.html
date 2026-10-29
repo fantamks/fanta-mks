@@ -531,7 +531,7 @@ body.admin-view #adminDiag{display:block!important}
 <div class='panel' style='margin-top:16px'><div class='admin-section-title'><div><span class='small'>STEP 3 · TEAM</span><h2>Classifica Team MKS</h2></div><span class='small'>Inserisci la posizione ufficiale di ogni Team.</span></div><div id='adminTeams'></div></div>
 
 <div class='panel' style='margin-top:16px'><div class='admin-section-title'><div><span class='small'>STEP 4 · CONTROLLO</span><h2>Controllo Round</h2></div><button class='action' onclick='refreshAdminValidation()'>AGGIORNA CONTROLLO</button></div><div id='adminValidation' class='admin-checks'></div></div>
-<div class='panel' style='margin-top:16px'><span class='small'>STEP 5 · FINALIZZA</span><h2>Pubblica il Round</h2><p class='tag'>La finalizzazione blocca i risultati e aggiorna i Fantapunti. Per correggere un errore potrai riaprire l'appuntamento.</p><button id='finalizeRoundBtn' class='action primary admin-finalize' style='width:100%' onclick='finalizeRoundAndCalculate()'>FINALIZZA ROUND E CALCOLA</button></div>
+<div class='panel' style='margin-top:16px'><span class='small'>STEP 5 · FINALIZZA</span><h2>Pubblica il Round</h2><p class='tag'>La finalizzazione blocca i risultati. La finalizzazione pubblica i Fantapunti ufficiali su Supabase. Non riaprire un Round pubblicato prima di predisporre il ricalcolo controllato.</p><button id='finalizeRoundBtn' class='action primary admin-finalize' style='width:100%' onclick='finalizeRoundAndCalculate()'>FINALIZZA RISULTATI ROUND</button></div>
 <details class='admin-collaudo-group' style='margin-top:16px'>
 <summary style='cursor:pointer;padding:18px 20px;border:1px solid #46536a;border-radius:10px;font-weight:700'>STRUMENTI AMMINISTRATORE E COLLAUDO <span class='small' style='display:block;margin-top:6px;font-weight:400'>Dati test, manutenzione, anteprime riservate e diagnostica · apri solo quando necessario</span></summary>
 <div style='padding:0 2px 12px'>
@@ -1038,7 +1038,7 @@ async function renderMy(){
  }catch(e){$('myContent').innerHTML=`<div class='hero'><h2>La mia squadra</h2><div class='warn'>Errore lettura stagione: ${e.message}</div></div>`}
 }
 const posPts={1:30,2:26,3:23,4:21,5:20,6:19,7:18,8:17,9:16,10:15,11:14,12:13,13:12,14:11,15:10,16:9,17:8,18:7,19:6,20:5,21:4,22:3,23:2,24:1};
-const coeff={MK1:1.15,MK2:1.10,MK3:1.05,Ladies:0.90};
+const coeff={MK1:1.15,MK2:1.10,MK3:1.05,Ladies:1.00};
 const teamPts={1:10,2:8,3:6,4:5,5:4,6:3,7:2};
 function teamEventPoints(position){const p=Number(position);return Number.isInteger(p)&&p>0?(teamPts[p]??1):0;}
 let adminEvents=[];let activeEventId=localStorage.getItem('fantaMksActiveEventId')||'';
@@ -1062,17 +1062,22 @@ function populateEventEditor(){const e=adminEvents.find(x=>String(x.id)===String
 async function updateAdminEvent(){const e=adminEvents.find(x=>String(x.id)===String(activeEventId)),st=$('eventEditStatus');if(!e){st.textContent='Seleziona un Round.';return}if(e.completato){st.textContent='Riapri il Round prima di modificarlo.';return}const nome=$('editEventName').value.trim(),data=$('editEventDate').value,tipo=$('editEventType').value;if(!nome||!data){st.textContent='Nome e data sono obbligatori.';return}if(/\btest\b/i.test(e.nome||'')&&!/\btest\b/i.test(nome)){st.textContent='Per sicurezza, mantieni TEST nel nome dei Round di collaudo.';return}if(!/\btest\b/i.test(e.nome||'')&&/\btest\b/i.test(nome)){st.textContent='Non trasformare un Round ufficiale in TEST tramite rinomina.';return}if(tipo!==e.tipo&&!confirm('Stai cambiando il format del Round. Procedi soltanto se non hai inserito risultati: i risultati esistenti potrebbero non essere compatibili.'))return;try{await api('eventi?id=eq.'+encodeURIComponent(e.id),{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify({nome,data,tipo:tipo==='iron'?'IRON':'GP'})});await loadAdminEvents();await loadEventFromSupabase(activeEventId);renderAdminBody();st.innerHTML='<span class="ok">✓ Round aggiornato su Supabase, identificativo conservato.</span>'}catch(err){st.textContent='Errore: '+err.message}}
 function updateActiveEventInfo(){let e=adminEvents.find(x=>String(x.id)===String(activeEventId));let a=$('eventLockActions'),t=$('adminRoundTitle'),m=$('adminRoundMeta');if(!e){if(t)t.textContent='Nessun appuntamento selezionato';if(m)m.textContent='';if(a)a.innerHTML='';return}if(t)t.textContent=e.nome;if(m)m.innerHTML=`${e.data||'Data non impostata'} · ${e.tipo==='iron'?'IRON GP':'SPRINT RACE + GP RACE'} · <b class='${e.completato?'ok':'warn'}'>${e.completato?'FINALIZZATO':'APERTO'}</b>`;$('eventType').value=e.tipo||'gp';if(a)a.innerHTML=e.completato?`<button class='action' onclick='setEventCompleted(false)'>RIAPRI ROUND</button>`:`<span class='eventstatus open'>APERTO</span>`}
 
-async function setEventCompleted(value){
+async function setEventCompleted(value, alreadyConfirmed=false){
  if(!activeEventId)return;
  const e=adminEvents.find(x=>String(x.id)===String(activeEventId));
  if(!e)return;
- if(value&&!confirm(`Finalizzare ${e.nome}? Dopo la finalizzazione i risultati non potranno essere modificati finché non riapri l'appuntamento.`))return;
+ if(!value && !isTestRound(e)){
+  $('eventCreateStatus').innerHTML=`<span class='warn'>Riapertura Round ufficiale disabilitata: serve una procedura di ricalcolo atomico prima di modificare risultati già pubblicati.</span>`;
+  return false;
+ }
+ if(value&&!alreadyConfirmed&&!confirm(`Finalizzare ${e.nome}? Dopo la finalizzazione i risultati non potranno essere modificati finché non riapri l'appuntamento.`))return false;
  try{
   await api('eventi?id=eq.'+activeEventId,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({completato:value})});
   await loadAdminEvents();
   renderAdminBody();
-  $('eventCreateStatus').innerHTML=value?`<span class='ok'>✓ Appuntamento finalizzato. Risultati bloccati.</span>`:`<span class='ok'>✓ Appuntamento riaperto. Puoi modificare i risultati.</span>`;
- }catch(err){$('eventCreateStatus').innerHTML=`<span class='warn'>${err.message}</span>`}
+  $('eventCreateStatus').innerHTML=value?`<span class='ok'>✓ Appuntamento finalizzato. Risultati bloccati; Fantapunti ufficiali non ancora pubblicati.</span>`:`<span class='ok'>✓ Appuntamento riaperto. Puoi modificare i risultati.</span>`;
+  return true;
+ }catch(err){$('eventCreateStatus').innerHTML=`<span class='warn'>${err.message}</span>`;throw err}
 }
 
 async function createAdminEvent(){let nome=$('newEventName').value.trim(),data=$('newEventDate').value,tipo=$('newEventType').value;if(!nome||!data){$('eventCreateStatus').innerHTML=`<span class='warn'>Inserisci nome e data dell’appuntamento.</span>`;return}try{let rows=await api('eventi',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify({nome,data,tipo:tipo==='iron'?'IRON':'GP',completato:false,is_test:/\\btest\\b/i.test(nome)})});let e=Array.isArray(rows)?rows[0]:null;if(!e)throw new Error('Appuntamento creato ma risposta non disponibile.');activeEventId=String(e.id);localStorage.setItem('fantaMksActiveEventId',activeEventId);saveLocalEvent(normalizeEvent({type:tipo,pilots:{},teams:{},formula:{}}));$('newEventName').value='';$('newEventDate').value='';$('eventCreateStatus').innerHTML=`<span class='ok'>✓ Appuntamento creato su Supabase.</span>`;await loadAdminEvents();renderAdminBody()}catch(e){$('eventCreateStatus').innerHTML=`<span class='warn'>${e.message}</span>`}}
@@ -1566,7 +1571,7 @@ async function clearTestRound(){
  }catch(e){status.textContent='Pulizia non completata: '+e.message+'. Controlla i dati online prima di riprovare.';}
  finally{const current=adminEvents.find(e=>String(e.id)===String(activeEventId));btn.disabled=!current||current.completato||!/\btest\b/i.test(current.nome||'');}
 }
-async function finalizeRoundAndCalculate(){if(!activeEventId){$('calcStatus').innerHTML=`<span class='warn'>Seleziona prima un Round.</span>`;return}let ev=normalizeEvent(getEvent());captureCurrentFormula(ev);saveLocalEvent(ev);let v=refreshAdminValidation(false);if(!v?.ok){$('calcStatus').innerHTML=`<span class='warn'>Controllo non superato: completa o correggi i dati evidenziati.</span>`;return}let e=adminEvents.find(x=>String(x.id)===String(activeEventId));if(!confirm(`Finalizzare ${e?.nome||'questo Round'}? I risultati verranno bloccati e la classifica FANTA aggiornata.`))return;try{await saveCurrentFormulaOnline(ev);await setEventCompleted(true);$('calcStatus').innerHTML=`<span class='ok'>✓ Round finalizzato e Fantapunti aggiornati.</span>`}catch(err){$('calcStatus').innerHTML=`<span class='warn'>Errore durante la finalizzazione: ${err.message}</span>`}}
+async function finalizeRoundAndCalculate(){if(!activeEventId){$('calcStatus').innerHTML=`<span class='warn'>Seleziona prima un Round.</span>`;return}let ev=normalizeEvent(getEvent());captureCurrentFormula(ev);saveLocalEvent(ev);let v=refreshAdminValidation(false);if(!v?.ok){$('calcStatus').innerHTML=`<span class='warn'>Controllo non superato: completa o correggi i dati evidenziati.</span>`;return}let e=adminEvents.find(x=>String(x.id)===String(activeEventId));if(!confirm(`Finalizzare ${e?.nome||'questo Round'}? I risultati verranno bloccati e la classifica FANTA aggiornata.`))return;try{await saveCurrentFormulaOnline(ev);const pub=await api('rpc/pubblica_round_fanta_2027',{method:'POST',body:JSON.stringify({p_evento_id:Number(activeEventId)})});if(!Array.isArray(pub)||pub.length!==1||!pub[0].righe_punteggio)throw Error('Pubblicazione non confermata da Supabase. Verifica lo stato prima di riprovare.');await loadAdminEvents();renderAdminBody();$('calcStatus').innerHTML=`<span class='ok'>✓ Round finalizzato e Fantapunti ufficiali pubblicati: ${Number(pub[0].righe_punteggio)} punteggi registrati.</span>`}catch(err){$('calcStatus').innerHTML=`<span class='warn'>Errore durante la finalizzazione: ${err.message}</span>`}}
 
 async function checkAdmin(){
   const btn=$('nav-admin');
